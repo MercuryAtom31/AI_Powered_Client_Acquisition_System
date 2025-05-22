@@ -1,0 +1,473 @@
+[
+  {
+    "url": "https://cliniquestcharles.com/",
+    "platform_type": "unknown",
+    "contact_info": {
+      "emails": [
+        "cliniquedentairestcharles@yahoo.ca"
+      ],
+      "phones": [
+        "4506775505"
+      ],
+      "social_media": {
+        "facebook": "https://www.facebook.com/cliniquedentairesaintcharles",
+        "instagram": "https://www.instagram.com/cliniquedentairestcharles/?hl=fr"
+      },
+      "contact_page_url": "https://cliniquestcharles.com/contact/"
+    },
+    "seo_analysis": {
+      "title": {
+        "text": "Dentiste Longueuil Clinique dentaire Rive Sud | Centre Dentaire St-Charles",
+        "length": 74,
+        "is_optimal_length": false,
+        "has_keywords": true,
+        "recommendations": [
+          "Title is too long (74 characters). Keep it under 60 characters"
+        ]
+      },
+      "meta_description": {
+        "text": "Notre clinique dentaire accueille les r\u00e9sidents de Boucherville, Longueuil et de la Rive-Sud! Contactez la Clinique St Charles Inc. pour un soin d\u00e8s aujourd'hui.",
+        "length": 161,
+        "is_optimal_length": false,
+        "has_keywords": true,
+        "recommendations": [
+          "Meta description is too long (161 characters). Keep it under 160 characters"
+        ]
+      },
+      "headers": {
+        "structure": {
+          "h1": [
+            "Votre centre dentairesur la Rive-Sud \u00e0 Longueuil"
+          ],
+          "h2": [
+            "Des soins et des services diversifi\u00e9s pour r\u00e9gler bien des probl\u00e8mes buccodentaires !",
+            "Une clinique dentaire moderne \u00e0 l\u2019atmosph\u00e8re accueillante",
+            "De nombreux professionnels dentairessous un m\u00eame toit\u2009!",
+            "Nos soins dentaires",
+            "Urgences dentaires",
+            "Service de Dentisterie p\u00e9diatrique",
+            "Orthodontie",
+            "Dentisterie g\u00e9n\u00e9raleet familiale",
+            "Dentisterie esth\u00e9tique",
+            "Parodontie",
+            "Chirurgie buccale et maxillo-faciale",
+            "Denturologie",
+            "Blogue"
+          ],
+          "h3": [
+            "Service de Dentisterie p\u00e9diatrique",
+            "Urgences dentaires",
+            "Orthodontie"
+          ],
+          "h4": [],
+          "h5": [],
+          "h6": []
+        },
+        "has_h1": true,
+        "multiple_h1": false,
+        "recommendations": []
+      },
+      "keywords": {
+        "primary_keywords": [
+          "de",
+          "et",
+          "\u00e0",
+          "des",
+          "vous"
+        ],
+        "secondary_keywords": [
+          "pour",
+          "en",
+          "la",
+          "votre",
+          "nos"
+        ],
+        "keyword_density": {
+          "de": 5.159165751920966,
+          "et": 3.512623490669594,
+          "\u00e0": 3.1833150384193196,
+          "des": 2.4149286498353457,
+          "vous": 2.305159165751921,
+          "pour": 1.9758507135016465,
+          "en": 1.9758507135016465,
+          "la": 1.756311745334797,
+          "votre": 1.5367727771679474,
+          "nos": 1.4270032930845227
+        }
+      },
+      "links": {
+        "internal_links": 80,
+        "external_links": 8,
+        "broken_links": 0,
+        "recommendations": []
+      },
+      "images": {
+        "total_images": 36,
+        "images_with_alt": 16,
+        "images_without_alt": 20,
+        "recommendations": [
+          "Add alt text to 20 images"
+        ]
+      },
+      "content_analysis": {
+        "word_count": 1090,
+        "is_optimal_length": true,
+        "recommendations": []
+      }
+    },
+    "analysis_date": "2025-05-22T20:22:12.025354",
+    "recommendations": [
+      "Optimize title length (should be under 60 characters)",
+      "Optimize meta description length (should be under 160 characters)",
+      "Add alt text to 20 images"
+    ]
+  },
+  {
+    "url": "https://bukoreso.com/succursale/longueuil/",
+    "platform_type": "unknown",
+    "contact_info": {
+      "emails": [
+        "melanie.lawton@bukoreso.com"
+      ],
+      "phones": [
+        "4504683688"
+      ],
+      "social_media": {},
+      "contact_page_url": null
+    },
+    "seo_analysis": {
+      "title": {
+        "text": "Centre dentaire de Longueuil - Buko R\u00e9so",
+        "length": 40,
+        "is_optimal_length": true,
+        "has_keywords": true,
+        "recommendations": []
+      },
+      "meta_description": {
+        "text": "Centre dentaire de Longueuil. Gardez une bonne sant\u00e9 dentaire. Appelez-nous ou prenez rendez-vous en ligne.",
+        "length": 107,
+        "is_optimal_length": true,
+        "has_keywords": true,
+        "recommendations": []
+      },
+      "headers": {
+        "structure": {
+          "h1": [
+            "Votre dentiste \u00e0 Longueuil"
+          ],
+          "h2": [
+            "Clinique dentaire Buko R\u00e9so Longueuil",
+            "Services offerts au centre dentaire Longueuil",
+            "Nos dentistes",
+            "Parlez-en avec \nvotre dentiste"
+          ],
+          "h3": [
+            "Succursale de Longueuil \u2013 chemin du Tremblay",
+            "Heures d'ouverture",
+            "Dentisterie",
+            "Esth\u00e9tique",
+            "Implantologie",
+            "Urgence dentaire",
+            "DRE ZEINAB AMRANI",
+            "VOUS CHERCHEZ \nUN SOURIRE \nQUI REFL\u00c8TE \nVOTRE SANT\u00c9?",
+            "VOUS AVEZ \nUNE URGENCE \nDENTAIRE?"
+          ],
+          "h4": [],
+          "h5": [],
+          "h6": []
+        },
+        "has_h1": true,
+        "multiple_h1": false,
+        "recommendations": []
+      },
+      "keywords": {
+        "primary_keywords": [
+          "longueuil",
+          "de",
+          "dentaire",
+          "et",
+          "en"
+        ],
+        "secondary_keywords": [
+          "votre",
+          "du",
+          "dre",
+          "amrani",
+          "une"
+        ],
+        "keyword_density": {
+          "longueuil": 3.482587064676617,
+          "de": 2.9850746268656714,
+          "dentaire": 2.9850746268656714,
+          "et": 2.4875621890547266,
+          "en": 1.9900497512437811,
+          "votre": 1.9900497512437811,
+          "du": 1.9900497512437811,
+          "dre": 1.9900497512437811,
+          "amrani": 1.9900497512437811,
+          "une": 1.9900497512437811
+        }
+      },
+      "links": {
+        "internal_links": 82,
+        "external_links": 3,
+        "broken_links": 0,
+        "recommendations": []
+      },
+      "images": {
+        "total_images": 9,
+        "images_with_alt": 2,
+        "images_without_alt": 7,
+        "recommendations": [
+          "Add alt text to 7 images"
+        ]
+      },
+      "content_analysis": {
+        "word_count": 239,
+        "is_optimal_length": false,
+        "recommendations": [
+          "Add more content (aim for at least 300 words)"
+        ]
+      }
+    },
+    "analysis_date": "2025-05-22T20:22:13.382448",
+    "recommendations": [
+      "Add alt text to 7 images",
+      "Optimize content length (aim for 300-2000 words)"
+    ]
+  },
+  {
+    "url": "https://centreslapointe.com/site/longueuil-guilbault/",
+    "platform_type": "unknown",
+    "contact_info": {
+      "emails": [],
+      "phones": [
+        "8005276468"
+      ],
+      "social_media": {
+        "facebook": "https://www.facebook.com/centresdentaireslapointe/",
+        "instagram": "https://www.instagram.com/centresdentaireslapointe/"
+      },
+      "contact_page_url": null
+    },
+    "seo_analysis": {
+      "title": {
+        "text": "Centre dentaire \u00e0 Longueuil Guilbault | Centres dentaires Lapointe",
+        "length": 66,
+        "is_optimal_length": false,
+        "has_keywords": true,
+        "recommendations": [
+          "Title is too long (66 characters). Keep it under 60 characters"
+        ]
+      },
+      "meta_description": {
+        "text": "Vous cherchez un dentiste \u00e0 Longueuil? Faites appel au Centre dentaire Lapointe pour des services de qualit\u00e9. Nous offrons des soins adapt\u00e9s \u00e0 vos besoins.",
+        "length": 155,
+        "is_optimal_length": true,
+        "has_keywords": true,
+        "recommendations": []
+      },
+      "headers": {
+        "structure": {
+          "h1": [
+            "Centre dentaire \u00e0 Longueuil-Guilbault"
+          ],
+          "h2": [
+            "Informations",
+            "Heures d'ouverture",
+            "Notre gamme compl\u00e8te de soins dentaires \u00e0 Longueuil",
+            "Pourquoi faire appel au Centre dentaire Lapointe \u00e0 Longueuil",
+            "Services offerts"
+          ],
+          "h3": [
+            "Services de dentisterie g\u00e9n\u00e9rale et familiale",
+            "Dentisterie fonctionnelle et esth\u00e9tique",
+            "Implantologie",
+            "Denturologie",
+            "Orthodontie",
+            "Des dentistes qualifi\u00e9s",
+            "Services complets de soins dentaires innovants",
+            "Confort pour une exp\u00e9rience positive du patient",
+            "Prenez rendez-vous d\u00e8s aujourd\u2019hui pour des soins dentaires de qualit\u00e9",
+            "Dentisterie esth\u00e9tique et fonctionnelle",
+            "Implantologie",
+            "Denturologie",
+            "Orthodontie",
+            "Dentisterie g\u00e9n\u00e9rale et familiale"
+          ],
+          "h4": [],
+          "h5": [],
+          "h6": []
+        },
+        "has_h1": true,
+        "multiple_h1": false,
+        "recommendations": []
+      },
+      "keywords": {
+        "primary_keywords": [
+          "de",
+          "\u00e0",
+          "et",
+          "des",
+          "pour"
+        ],
+        "secondary_keywords": [
+          "nos",
+          "dentaires",
+          "longueuil",
+          "un",
+          "soins"
+        ],
+        "keyword_density": {
+          "de": 4.353562005277045,
+          "\u00e0": 3.825857519788918,
+          "et": 3.430079155672823,
+          "des": 3.2981530343007917,
+          "pour": 3.034300791556728,
+          "nos": 2.242744063324538,
+          "dentaires": 2.1108179419525066,
+          "longueuil": 1.58311345646438,
+          "un": 1.4511873350923483,
+          "soins": 1.4511873350923483
+        }
+      },
+      "links": {
+        "internal_links": 52,
+        "external_links": 10,
+        "broken_links": 0,
+        "recommendations": []
+      },
+      "images": {
+        "total_images": 5,
+        "images_with_alt": 0,
+        "images_without_alt": 5,
+        "recommendations": [
+          "Add alt text to 5 images"
+        ]
+      },
+      "content_analysis": {
+        "word_count": 871,
+        "is_optimal_length": true,
+        "recommendations": []
+      }
+    },
+    "analysis_date": "2025-05-22T20:22:13.670133",
+    "recommendations": [
+      "Optimize title length (should be under 60 characters)",
+      "Add alt text to 5 images"
+    ]
+  },
+  {
+    "url": "https://www.centredentaire1450.com/site/accueil",
+    "platform_type": "unknown",
+    "contact_info": {
+      "emails": [],
+      "phones": [
+        "4506511450"
+      ],
+      "social_media": {},
+      "contact_page_url": "https://www.centredentaire1450.com/site/contact-dentiste-longueuil"
+    },
+    "seo_analysis": {
+      "title": {
+        "text": "Centre dentaire 1450 | Clinique dentaire \u00e0 Longueuil",
+        "length": 52,
+        "is_optimal_length": true,
+        "has_keywords": true,
+        "recommendations": []
+      },
+      "meta_description": {
+        "text": "Bienvenue au Centre dentaire 1450. Nous sommes votre clinique dentaire de Longueuil.",
+        "length": 84,
+        "is_optimal_length": true,
+        "has_keywords": true,
+        "recommendations": []
+      },
+      "headers": {
+        "structure": {
+          "h1": [
+            "Bienvenue au Centre dentaire 1450"
+          ],
+          "h2": [
+            "Rencontrez nos dentistes \u00e0 Longueuil",
+            "Options de financement",
+            "Soins en denturologie \u00e0 Longueuil",
+            "Retrouvez-nous \u00e0 Longueuil",
+            "Questions fr\u00e9quemment pos\u00e9es",
+            "Emplacement",
+            "T\u00e9l\u00e9phone",
+            "Horaires",
+            "Liens rapides"
+          ],
+          "h3": [
+            "Conseils pr\u00e9ventifs",
+            "Dentistes",
+            "Services complets",
+            "Technologies",
+            "Emplacement",
+            "Financement",
+            "Dre Yasaman Esfahani",
+            "Dre Yousra Bisset"
+          ],
+          "h4": [],
+          "h5": [],
+          "h6": []
+        },
+        "has_h1": true,
+        "multiple_h1": false,
+        "recommendations": []
+      },
+      "keywords": {
+        "primary_keywords": [
+          "de",
+          "\u00e0",
+          "pour",
+          "en",
+          "et"
+        ],
+        "secondary_keywords": [
+          "vous",
+          "notre",
+          "les",
+          "dentaires",
+          "des"
+        ],
+        "keyword_density": {
+          "de": 4.621212121212121,
+          "\u00e0": 2.9545454545454546,
+          "pour": 2.803030303030303,
+          "en": 2.6515151515151514,
+          "et": 2.5757575757575757,
+          "vous": 2.1212121212121215,
+          "notre": 1.9696969696969695,
+          "les": 1.8181818181818181,
+          "dentaires": 1.7424242424242427,
+          "des": 1.7424242424242427
+        }
+      },
+      "links": {
+        "internal_links": 96,
+        "external_links": 6,
+        "broken_links": 0,
+        "recommendations": []
+      },
+      "images": {
+        "total_images": 15,
+        "images_with_alt": 9,
+        "images_without_alt": 6,
+        "recommendations": [
+          "Add alt text to 6 images"
+        ]
+      },
+      "content_analysis": {
+        "word_count": 1507,
+        "is_optimal_length": true,
+        "recommendations": []
+      }
+    },
+    "analysis_date": "2025-05-22T20:22:14.482413",
+    "recommendations": [
+      "Add alt text to 6 images"
+    ]
+  }
+]

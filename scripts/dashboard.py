@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 import logging
 from typing import Dict, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 import json
 from tabulate import tabulate
 from collections import Counter
@@ -40,7 +40,7 @@ def get_summary_stats(db_session) -> Dict:
     
     # Get recent activity
     recent_outreach = db_session.query(OutreachHistory)\
-        .filter(OutreachHistory.sent_date >= datetime.utcnow() - timedelta(days=7))\
+        .filter(OutreachHistory.sent_date >= datetime.now(UTC) - timedelta(days=7))\
         .count()
     
     return {
@@ -68,7 +68,7 @@ def get_top_seo_issues(db_session, limit: int = 5) -> List[Dict]:
     # Get companies with missing H1 tags
     missing_h1 = db_session.query(Company)\
         .join(SEOAnalysis)\
-        .filter(SEOAnalysis.header_structure['h1'].astext == '[]')\
+        .filter(SEOAnalysis.header_structure == None)\
         .count()
     issues.append({'issue': 'Missing H1 Tags', 'count': missing_h1})
     
