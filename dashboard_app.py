@@ -1,7 +1,9 @@
 import streamlit as st
 import json
 import pandas as pd
-from collections import Counter
+from collections import defaultdict, Counter
+from urllib.parse import urlparse
+import numpy as np
 
 st.set_page_config(page_title="Tableau de bord d'acquisition de clients par IA", layout="wide")
 st.title("Tableau de bord d'acquisition de clients par IA")
@@ -23,14 +25,30 @@ if not data:
 
 # Convert to DataFrame for easier manipulation
 df = pd.json_normalize(data)
+unique_domains = df['url'].apply(lambda x: urlparse(x).netloc).nunique()
 
-# Summary statistics
+def safe_len(x):
+    if isinstance(x, list):
+        return len(x)
+    return 0
+
+def has_email(x):
+    if isinstance(x, list):
+        return bool(x) and len(x) > 0
+    return False
+
+def has_phone(x):
+    if isinstance(x, list):
+        return bool(x) and len(x) > 0
+    return False
+
+# Summary statistics (robust)
 st.header("Statistiques Résumées")
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Nombre total d'entreprises", len(df))
-col2.metric("Nombre total de contacts", sum(df['contact_info.emails'].apply(lambda x: len(x) if isinstance(x, list) else 0)))
-col3.metric("Sites web avec email", sum(df['contact_info.emails'].apply(lambda x: bool(x) and len(x) > 0)))
-col4.metric("Sites web avec téléphone", sum(df['contact_info.phones'].apply(lambda x: bool(x) and len(x) > 0)))
+col1.metric("Nombre total d'entreprises", unique_domains)
+col2.metric("Nombre total de contacts", sum(df['contact_info.emails'].apply(safe_len)))
+col3.metric("Sites web avec email", sum(df['contact_info.emails'].apply(has_email)))
+col4.metric("Sites web avec téléphone", sum(df['contact_info.phones'].apply(has_phone)))
 
 # Platform distribution
 st.subheader("Répartition des plateformes")
@@ -57,23 +75,38 @@ seo_issues = pd.DataFrame([
 ])
 st.dataframe(seo_issues, use_container_width=True)
 
-# Detailed Website Analysis
-st.subheader("Analyse détaillée du site web")
-for idx, row in df.iterrows():
-    with st.expander(f"{row['url']} ({row['platform_type']})"):
-        st.markdown(f"**Emails de contact :** {', '.join(row['contact_info.emails']) if isinstance(row['contact_info.emails'], list) else row['contact_info.emails']}")
-        st.markdown(f"**Téléphones de contact :** {', '.join(row['contact_info.phones']) if isinstance(row['contact_info.phones'], list) else row['contact_info.phones']}")
-        st.markdown(f"**Titre SEO :** {row.get('seo_analysis.title.text', '')}")
-        st.markdown(f"**Meta description :** {row.get('seo_analysis.meta_description.text', '')}")
-        st.markdown(f"**Nombre de mots :** {row.get('seo_analysis.content_analysis.word_count', '')}")
-        st.markdown(f"**Images sans texte alternatif :** {row.get('seo_analysis.images.images_without_alt', '')}")
-        st.markdown(f"**Recommandations :**")
-        recs = row['recommendations'] if isinstance(row['recommendations'], list) else []
-        for rec in recs:
-            st.write(f"- {rec}")
-        # Show raw data if checkbox is checked
-        if st.checkbox(f"Afficher les données brutes pour {row['url']}", key=f"raw_{idx}"):
-            st.json(row.to_dict())
+# Group by domain for detailed analysis
+domain_groups = defaultdict(list)
+for row in data:
+    domain = urlparse(row.get('url', '')).netloc
+    domain_groups[domain].append(row)
+
+# Optional: Add a search/filter box
+search = st.text_input("Filtrer par domaine ou sous-page (optionnel)").lower()
+
+st.header("Analyse détaillée par domaine et sous-page")
+for domain, pages in sorted(domain_groups.items()):
+    if not domain:
+        continue  # Skip empty domain groups
+    if search and search not in domain.lower() and not any(search in p['url'].lower() for p in pages):
+        continue
+    st.subheader(f"Domaine : {domain} (sous-pages analysées : {len(pages)})")
+    for idx, row in enumerate(sorted(pages, key=lambda x: x['url'])):
+        if search and search not in row['url'].lower():
+            continue
+        with st.expander(f"{row['url']}"):
+            st.markdown(f"**Emails de contact :** {', '.join(row.get('contact_info', {}).get('emails', []))}")
+            st.markdown(f"**Téléphones de contact :** {', '.join(row.get('contact_info', {}).get('phones', []))}")
+            st.markdown(f"**Titre SEO :** {row.get('seo_analysis', {}).get('title', {}).get('text', '')}")
+            st.markdown(f"**Meta description :** {row.get('seo_analysis', {}).get('meta_description', {}).get('text', '')}")
+            st.markdown(f"**Nombre de mots :** {row.get('seo_analysis', {}).get('content_analysis', {}).get('word_count', '')}")
+            st.markdown(f"**Images sans texte alternatif :** {row.get('seo_analysis', {}).get('images', {}).get('images_without_alt', '')}")
+            st.markdown(f"**Recommandations :**")
+            recs = row.get('recommendations', [])
+            for rec in recs:
+                st.write(f"- {rec}")
+            if st.checkbox(f"Afficher les données brutes pour {row['url']}", key=f"raw_{domain}_{idx}"):
+                st.json(row)
 
 # Download option
 st.download_button(
