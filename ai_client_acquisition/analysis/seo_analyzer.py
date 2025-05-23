@@ -219,9 +219,9 @@ class SEOAnalyzer:
         recommendations = []
         
         if not title:
-            recommendations.append("Add a title tag")
+            recommendations.append("Ajoutez une balise titre (title tag)")
         elif len(title) > self.title_max_length:
-            recommendations.append(f"Title is too long ({len(title)} characters). Keep it under {self.title_max_length} characters")
+            recommendations.append(f"Le titre est trop long ({len(title)} caractères). Gardez-le sous {self.title_max_length} caractères")
         
         return recommendations
 
@@ -232,9 +232,9 @@ class SEOAnalyzer:
         recommendations = []
         
         if not description:
-            recommendations.append("Add a meta description")
+            recommendations.append("Ajoutez une meta description")
         elif len(description) > self.meta_description_max_length:
-            recommendations.append(f"Meta description is too long ({len(description)} characters). Keep it under {self.meta_description_max_length} characters")
+            recommendations.append(f"La meta description est trop longue ({len(description)} caractères). Gardez-la sous {self.meta_description_max_length} caractères")
         
         return recommendations
 
@@ -245,9 +245,9 @@ class SEOAnalyzer:
         recommendations = []
         
         if not headers['h1']:
-            recommendations.append("Add an H1 tag")
+            recommendations.append("Ajoutez une balise H1 à la page")
         elif len(headers['h1']) > 1:
-            recommendations.append("Use only one H1 tag per page")
+            recommendations.append("Utilisez une seule balise H1 par page")
         
         return recommendations
 
@@ -258,11 +258,11 @@ class SEOAnalyzer:
         recommendations = []
         
         if not internal_links:
-            recommendations.append("Add internal links to improve site structure")
+            recommendations.append("Ajoutez des liens internes pour améliorer la structure du site")
         if not external_links:
-            recommendations.append("Consider adding relevant external links")
+            recommendations.append("Envisagez d'ajouter des liens externes pertinents")
         if broken_links:
-            recommendations.append(f"Fix {len(broken_links)} broken links")
+            recommendations.append(f"Corrigez {len(broken_links)} liens cassés")
         
         return recommendations
 
@@ -273,9 +273,9 @@ class SEOAnalyzer:
         recommendations = []
         
         if total_images == 0:
-            recommendations.append("Consider adding relevant images to improve engagement")
+            recommendations.append("Envisagez d'ajouter des images pertinentes pour améliorer l'engagement")
         elif images_with_alt < total_images:
-            recommendations.append(f"Add alt text to {total_images - images_with_alt} images")
+            recommendations.append(f"Ajoutez un texte alternatif (alt) à {total_images - images_with_alt} images")
         
         return recommendations
 
@@ -286,8 +286,8 @@ class SEOAnalyzer:
         recommendations = []
         
         if word_count < 300:
-            recommendations.append("Add more content (aim for at least 300 words)")
+            recommendations.append("Ajoutez plus de contenu (au moins 300 mots)")
         elif word_count > 2000:
-            recommendations.append("Consider breaking up the content into multiple pages")
+            recommendations.append("Envisagez de diviser le contenu en plusieurs pages")
         
         return recommendations 

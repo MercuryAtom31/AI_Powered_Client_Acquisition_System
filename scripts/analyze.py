@@ -105,40 +105,40 @@ def analyze_website(url: str, db_session) -> dict:
 
 def _generate_recommendations(seo_analysis: Dict) -> List[str]:
     """
-    Generate recommendations based on SEO analysis.
+    Générer des recommandations basées sur l'analyse SEO (en français).
     """
     recommendations = []
     
-    # Title recommendations
+    # Recommandations sur le titre
     if 'title' in seo_analysis:
         if not seo_analysis['title']['is_optimal_length']:
-            recommendations.append("Optimize title length (should be under 60 characters)")
+            recommendations.append("Optimisez la longueur du titre (doit être sous 60 caractères)")
         if not seo_analysis['title']['has_keywords']:
-            recommendations.append("Add relevant keywords to the title")
+            recommendations.append("Ajoutez des mots-clés pertinents dans le titre")
     
-    # Meta description recommendations
+    # Recommandations sur la meta description
     if 'meta_description' in seo_analysis:
         if not seo_analysis['meta_description']['is_optimal_length']:
-            recommendations.append("Optimize meta description length (should be under 160 characters)")
+            recommendations.append("Optimisez la longueur de la meta description (doit être sous 160 caractères)")
         if not seo_analysis['meta_description']['has_keywords']:
-            recommendations.append("Add relevant keywords to the meta description")
+            recommendations.append("Ajoutez des mots-clés pertinents dans la meta description")
     
-    # Header recommendations
+    # Recommandations sur les en-têtes
     if 'headers' in seo_analysis:
         if not seo_analysis['headers']['has_h1']:
-            recommendations.append("Add an H1 tag to the page")
+            recommendations.append("Ajoutez une balise H1 à la page")
         if seo_analysis['headers']['multiple_h1']:
-            recommendations.append("Use only one H1 tag per page")
+            recommendations.append("Utilisez une seule balise H1 par page")
     
-    # Image recommendations
+    # Recommandations sur les images
     if 'images' in seo_analysis:
         if seo_analysis['images']['images_without_alt'] > 0:
-            recommendations.append(f"Add alt text to {seo_analysis['images']['images_without_alt']} images")
+            recommendations.append(f"Ajoutez un texte alternatif (alt) à {seo_analysis['images']['images_without_alt']} images")
     
-    # Content recommendations
+    # Recommandations sur le contenu
     if 'content_analysis' in seo_analysis:
         if not seo_analysis['content_analysis']['is_optimal_length']:
-            recommendations.append("Optimize content length (aim for 300-2000 words)")
+            recommendations.append("Optimisez la longueur du contenu (objectif : 300 à 2000 mots)")
     
     return recommendations
 

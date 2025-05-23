@@ -22,7 +22,7 @@
         "is_optimal_length": false,
         "has_keywords": true,
         "recommendations": [
-          "Title is too long (74 characters). Keep it under 60 characters"
+          "Le titre est trop long (74 caract\u00e8res). Gardez-le sous 60 caract\u00e8res"
         ]
       },
       "meta_description": {
@@ -31,7 +31,7 @@
         "is_optimal_length": false,
         "has_keywords": true,
         "recommendations": [
-          "Meta description is too long (161 characters). Keep it under 160 characters"
+          "La meta description est trop longue (161 caract\u00e8res). Gardez-la sous 160 caract\u00e8res"
         ]
       },
       "headers": {
@@ -106,7 +106,7 @@
         "images_with_alt": 16,
         "images_without_alt": 20,
         "recommendations": [
-          "Add alt text to 20 images"
+          "Ajoutez un texte alternatif (alt) \u00e0 20 images"
         ]
       },
       "content_analysis": {
@@ -115,11 +115,11 @@
         "recommendations": []
       }
     },
-    "analysis_date": "2025-05-22T20:22:12.025354",
+    "analysis_date": "2025-05-23T18:45:20.105907",
     "recommendations": [
-      "Optimize title length (should be under 60 characters)",
-      "Optimize meta description length (should be under 160 characters)",
-      "Add alt text to 20 images"
+      "Optimisez la longueur du titre (doit \u00eatre sous 60 caract\u00e8res)",
+      "Optimisez la longueur de la meta description (doit \u00eatre sous 160 caract\u00e8res)",
+      "Ajoutez un texte alternatif (alt) \u00e0 20 images"
     ]
   },
   {
@@ -219,21 +219,21 @@
         "images_with_alt": 2,
         "images_without_alt": 7,
         "recommendations": [
-          "Add alt text to 7 images"
+          "Ajoutez un texte alternatif (alt) \u00e0 7 images"
         ]
       },
       "content_analysis": {
         "word_count": 239,
         "is_optimal_length": false,
         "recommendations": [
-          "Add more content (aim for at least 300 words)"
+          "Ajoutez plus de contenu (au moins 300 mots)"
         ]
       }
     },
-    "analysis_date": "2025-05-22T20:22:13.382448",
+    "analysis_date": "2025-05-23T18:45:21.511689",
     "recommendations": [
-      "Add alt text to 7 images",
-      "Optimize content length (aim for 300-2000 words)"
+      "Ajoutez un texte alternatif (alt) \u00e0 7 images",
+      "Optimisez la longueur du contenu (objectif : 300 \u00e0 2000 mots)"
     ]
   },
   {
@@ -257,7 +257,7 @@
         "is_optimal_length": false,
         "has_keywords": true,
         "recommendations": [
-          "Title is too long (66 characters). Keep it under 60 characters"
+          "Le titre est trop long (66 caract\u00e8res). Gardez-le sous 60 caract\u00e8res"
         ]
       },
       "meta_description": {
@@ -342,7 +342,7 @@
         "images_with_alt": 0,
         "images_without_alt": 5,
         "recommendations": [
-          "Add alt text to 5 images"
+          "Ajoutez un texte alternatif (alt) \u00e0 5 images"
         ]
       },
       "content_analysis": {
@@ -351,10 +351,10 @@
         "recommendations": []
       }
     },
-    "analysis_date": "2025-05-22T20:22:13.670133",
+    "analysis_date": "2025-05-23T18:45:22.102760",
     "recommendations": [
-      "Optimize title length (should be under 60 characters)",
-      "Add alt text to 5 images"
+      "Optimisez la longueur du titre (doit \u00eatre sous 60 caract\u00e8res)",
+      "Ajoutez un texte alternatif (alt) \u00e0 5 images"
     ]
   },
   {
@@ -456,7 +456,7 @@
         "images_with_alt": 9,
         "images_without_alt": 6,
         "recommendations": [
-          "Add alt text to 6 images"
+          "Ajoutez un texte alternatif (alt) \u00e0 6 images"
         ]
       },
       "content_analysis": {
@@ -465,9 +465,115 @@
         "recommendations": []
       }
     },
-    "analysis_date": "2025-05-22T20:22:14.482413",
+    "analysis_date": "2025-05-23T18:45:22.918772",
     "recommendations": [
-      "Add alt text to 6 images"
+      "Ajoutez un texte alternatif (alt) \u00e0 6 images"
+    ]
+  },
+  {
+    "url": "https://www.dentistegreenfieldpark.ca/",
+    "platform_type": "unknown",
+    "contact_info": {
+      "emails": [
+        "info@dentistegreenfieldpark.ca"
+      ],
+      "phones": [
+        "4504662337"
+      ],
+      "social_media": {},
+      "contact_page_url": "https://www.dentistegreenfieldpark.ca/contactez-dentiste-greenfield-park"
+    },
+    "seo_analysis": {
+      "title": {
+        "text": "Dentiste Familiale Greenfield Park - Accueil",
+        "length": 44,
+        "is_optimal_length": true,
+        "has_keywords": true,
+        "recommendations": []
+      },
+      "meta_description": {
+        "text": "Notre clinique dentaire accueille depuis trois d\u00e9cennies les famille de Greenfield Park et des villes environnantes.",
+        "length": 116,
+        "is_optimal_length": true,
+        "has_keywords": true,
+        "recommendations": []
+      },
+      "headers": {
+        "structure": {
+          "h1": [
+            "\u00c0 propos de la clinique",
+            "",
+            "UNE \u00c9QUIPE  D\u00c9VOU\u00c9E !"
+          ],
+          "h2": [
+            "Les services Que nous offrons",
+            "Besoin d'un rendez-vous ?",
+            "La pr\u00e9vention, le traitement, le remplacement",
+            "\u00e0 votre service !"
+          ],
+          "h3": [],
+          "h4": [],
+          "h5": [],
+          "h6": []
+        },
+        "has_h1": true,
+        "multiple_h1": true,
+        "recommendations": [
+          "Utilisez une seule balise H1 par page"
+        ]
+      },
+      "keywords": {
+        "primary_keywords": [
+          "de",
+          "la",
+          "et",
+          "notre",
+          "services"
+        ],
+        "secondary_keywords": [
+          "\u00e0",
+          "votre",
+          "une",
+          "450",
+          "demande"
+        ],
+        "keyword_density": {
+          "de": 10.0,
+          "la": 6.153846153846154,
+          "et": 4.615384615384616,
+          "notre": 2.307692307692308,
+          "services": 2.307692307692308,
+          "\u00e0": 2.307692307692308,
+          "votre": 2.307692307692308,
+          "une": 2.307692307692308,
+          "450": 1.5384615384615385,
+          "demande": 1.5384615384615385
+        }
+      },
+      "links": {
+        "internal_links": 34,
+        "external_links": 6,
+        "broken_links": 0,
+        "recommendations": []
+      },
+      "images": {
+        "total_images": 4,
+        "images_with_alt": 4,
+        "images_without_alt": 0,
+        "recommendations": []
+      },
+      "content_analysis": {
+        "word_count": 154,
+        "is_optimal_length": false,
+        "recommendations": [
+          "Ajoutez plus de contenu (au moins 300 mots)"
+        ]
+      }
+    },
+    "analysis_date": "2025-05-23T18:45:23.473394",
+    "recommendations": [
+      "Utilisez une seule balise H1 par page",
+      "Optimisez la longueur du contenu (objectif : 300 \u00e0 2000 mots)"
     ]
   }
 ]
