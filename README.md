@@ -1,126 +1,95 @@
 # AI-Powered Client Acquisition System
 
-An intelligent system for discovering, analyzing, and engaging potential clients through automated web scraping, SEO analysis, and personalized outreach.
+A desktop application that performs AI-powered SEO analysis on websites and integrates with HubSpot CRM.
 
 ## Features
 
-- **Website Discovery & Categorization**
-  - Automated web crawling
-  - Platform identification (WordPress, Shopify, etc.)
-  - Business website filtering
+- URL input and analysis
+- Local AI-powered SEO analysis using Gemma via Ollama
+- Contact information extraction
+- Detailed SEO recommendations
+- HubSpot CRM integration
+- Local SQLite storage
+- Export results to CSV
 
-- **SEO Analysis**
-  - On-page SEO element analysis
-  - Keyword extraction
-  - Performance metrics
+## Prerequisites
 
-- **Contact Information Extraction**
-  - Email address discovery
-  - Phone number extraction
-  - Social media link identification
+1. Python 3.8 or higher
+2. Ollama installed on your system
+3. HubSpot account (optional)
 
-- **AI-Powered Personalization**
-  - GPT-powered email generation
-  - Context-aware pitch customization
-  - Multi-channel outreach
+## Installation
 
-- **Tracking & Analytics**
-  - Outreach status monitoring
-  - Conversion tracking
-  - Performance reporting
-
-## Project Structure
-
+1. Clone this repository:
+```bash
+git clone <repository-url>
+cd AI_Powered_Client_Acquisition_System
 ```
-ai_client_acquisition/
-├── discovery/           # Website discovery and crawling
-├── analysis/           # SEO and content analysis
-├── extraction/         # Contact information extraction
-├── personalization/    # AI-powered content generation
-├── outreach/          # Email sending and tracking
-├── database/          # Database models and migrations
-├── api/               # REST API endpoints
-└── utils/             # Shared utilities
-```
-
-## Setup
-
-1. Clone the repository:
-   ```bash
-   git clone [repository-url]
-   cd ai-client-acquisition
-   ```
 
 2. Create and activate a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
 3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
 
-4. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+4. Install Ollama:
+   - Windows: Download from https://ollama.ai/download
+   - Mac: `brew install ollama`
+   - Linux: Follow instructions at https://ollama.ai/download
 
-5. Initialize the database:
-   ```bash
-   python scripts/init_db.py
-   ```
+5. Pull the Gemma model:
+```bash
+ollama pull gemma:2b
+```
 
-## Configuration
-
-Create a `.env` file with the following variables:
-
-```env
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/client_acquisition
-
-# OpenAI
-OPENAI_API_KEY=your_openai_api_key
-
-# SendGrid
-SENDGRID_API_KEY=your_sendgrid_api_key
-SENDER_EMAIL=your_verified_sender_email
-
-# Scraping
-MAX_CONCURRENT_REQUESTS=5
-REQUEST_DELAY=2
+6. Create a `.env` file in the project root:
+```
+HUBSPOT_API_KEY=your_hubspot_api_key_here
 ```
 
 ## Usage
 
-1. Start the discovery process:
-   ```bash
-   python scripts/discover.py --seed-urls urls.txt
-   ```
+1. Start the application:
+```bash
+streamlit run dashboard_app.py
+```
 
-2. Run SEO analysis:
-   ```bash
-   python scripts/analyze.py --batch-size 100
-   ```
+2. Open your browser and navigate to `http://localhost:8501`
 
-3. Generate and send personalized outreach:
-   ```bash
-   python scripts/outreach.py --template templates/pitch.txt
-   ```
+3. Enter URLs to analyze (one per line) in the text area
 
-4. View analytics dashboard:
-   ```bash
-   python scripts/dashboard.py
-   ```
+4. Click "Analyze URLs" to start the analysis
 
-## Development
+5. View results in the dashboard:
+   - Summary statistics
+   - Detailed analysis per URL
+   - SEO recommendations
+   - Contact information
 
-- Follow PEP 8 style guide
-- Write tests for new features
-- Update documentation for API changes
-- Use type hints for better code maintainability
+6. Optional: Push results to HubSpot using the "Push to HubSpot" button
+
+## Database
+
+The application uses SQLite for local storage. The database file (`client_acquisition.db`) is created automatically when you first run the application.
+
+## Exporting Results
+
+You can export the analysis results to CSV using the "Download Analysis Results" button in the dashboard.
+
+## Troubleshooting
+
+1. If Ollama is not working:
+   - Ensure Ollama is running: `ollama serve`
+   - Check if the model is downloaded: `ollama list`
+
+2. If HubSpot integration fails:
+   - Verify your API key in the `.env` file
+   - Check your HubSpot account permissions
 
 ## Contributing
 
@@ -132,4 +101,4 @@ REQUEST_DELAY=2
 
 ## License
 
-MIT License - see LICENSE file for details 
+This project is licensed under the MIT License - see the LICENSE file for details. 
