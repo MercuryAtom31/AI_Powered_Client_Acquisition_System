@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 class OllamaClient:
     def __init__(self, base_url: str = "http://localhost:11434"):
         self.base_url = base_url
-        self.model = "gemma:2b"  # Using Gemma 2B model
+        self.model = "gemma3:4b"  # Updated to match the pulled model
 
     def generate_seo_analysis(self, url: str, content: Dict) -> Dict:
         """Generate SEO analysis using local LLM."""
