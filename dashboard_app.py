@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import pandas as pd
 from collections import defaultdict, Counter
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 import numpy as np
 import sqlite3
 import requests # Added requests for direct scraping
@@ -12,42 +12,162 @@ from hubspot_client import HubSpotClient
 import time
 from ai_client_acquisition.analysis.seo_analyzer import SEOAnalyzer # Import your modules
 from ai_client_acquisition.extraction.contact_extractor import ContactExtractor
+from ai_client_acquisition.discovery.google_places_client import GooglePlacesClient # Import Google Places Client
+from typing import List, Dict, Optional # Import necessary types
+from datetime import datetime # Import datetime
+import logging # Import logging
+
 # from ai_client_acquisition.discovery.crawler import WebsiteCrawler, run_crawler # Keep imports commented for now, as full crawler integration is complex in Streamlit
+
+# Configure logging (move to top if needed)
+logger = logging.getLogger(__name__)
+
+# Set Streamlit page config first
+st.set_page_config(page_title="Tableau de bord d'acquisition de clients par IA", layout="wide")
 
 def init_db():
     """Initialize the SQLite database and create the table if it doesn't exist.
+    This version includes tables for business search results.
     """
     try:
         conn = sqlite3.connect('client_acquisition.db')
         cursor = conn.cursor()
+        
+        # Drop existing tables for simplicity during development
+        # In a production app, you would use ALTER TABLE or migration tools
+        cursor.execute('DROP TABLE IF EXISTS analysis_results')
+        cursor.execute('DROP TABLE IF EXISTS businesses')
+
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS analysis_results (
-                url TEXT PRIMARY KEY,
-                analysis_data TEXT,
-                synced_to_hubspot BOOLEAN DEFAULT FALSE
+            CREATE TABLE businesses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                search_query TEXT,
+                place_id TEXT UNIQUE,
+                name TEXT,
+                address TEXT,
+                website TEXT
             )
         ''')
+        
+        cursor.execute('''
+            CREATE TABLE analysis_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                business_id INTEGER,
+                url TEXT,
+                analysis_data TEXT,
+                synced_to_hubspot BOOLEAN DEFAULT FALSE,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (business_id) REFERENCES businesses(id)
+            )
+        ''')
+        
         conn.commit()
         conn.close()
+        st.success("Database initialized with business search schema.")
     except Exception as e:
         st.error(f"Erreur lors de l'initialisation de la base de données : {e}")
 
 # Initialize the database
 init_db()
 
-st.set_page_config(page_title="Tableau de bord d'acquisition de clients par IA", layout="wide")
+# st.set_page_config(page_title="Tableau de bord d'acquisition de clients par IA", layout="wide") # Moved to top
 st.title("Tableau de bord d'acquisition de clients par IA")
 
 # Initialize clients and analyzers
 ollama_client = OllamaClient()
 seo_analyzer = SEOAnalyzer()
 contact_extractor = ContactExtractor()
+google_places_client = GooglePlacesClient() # Initialize Google Places Client
+
 try:
     hubspot_client = HubSpotClient()
     hubspot_available = True
 except Exception as e:
     st.warning("L'intégration HubSpot n'est pas disponible. Veuillez vérifier votre clé API dans le fichier .env.")
     hubspot_available = False
+
+
+def run_analysis_pipeline(urls: List[str]):
+    """
+    Runs the full analysis pipeline for a list of URLs and stores results.
+    This is for direct URL input.
+    """
+    if not urls:
+        st.warning("No valid URLs provided for analysis.")
+        return
+        
+    st.info(f"Analyse de {len(urls)} URL(s) en cours...")
+    progress_bar = st.progress(0)
+    analyzed_count = 0
+
+    for i, url in enumerate(urls):
+        try:
+            # Check if this URL (from direct input) already exists in analysis_results
+            # This is a simplified check; ideally, you'd handle updates more granularly
+            conn = sqlite3.connect('client_acquisition.db')
+            cursor = conn.cursor()
+            cursor.execute('SELECT id FROM analysis_results WHERE url = ?', (url,))
+            existing_analysis = cursor.fetchone()
+            conn.close()
+            
+            if existing_analysis:
+                st.info(f"Skipping already analyzed URL (from direct input): {url}")
+                progress_bar.progress((i + 1) / len(urls))
+                continue # Skip if already analyzed
+
+            # --- Integrated Analysis Pipeline ---
+            st.write(f"Analyse de : {url}")
+            
+            # 1. Fetch HTML
+            try:
+                response = requests.get(url, timeout=15) # Added timeout
+                response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+                html_content = response.text
+            except requests.exceptions.RequestException as e:
+                st.error(f"Erreur de requête pour {url}: {str(e)}")
+                progress_bar.progress((i + 1) / len(urls))
+                continue # Skip to the next URL
+
+            # 2. Extract Contact Info (This is done within SEOAnalyzer now, adjust if needed)
+            # Assuming SEOAnalyzer handles contact extraction or we do it separately here if needed
+
+            # 3. Perform SEO Analysis
+            seo_analysis = seo_analyzer.analyze_url(url) # Use analyze_url for fetching and analyzing
+            
+            # 4. Combine data and store
+            # For direct URL input, we don't link to a specific business found via search
+            # We'll store it directly in analysis_results with no business_id
+            full_analysis_result = {
+                "url": url,
+                "seo_analysis": seo_analysis,
+                # Add other relevant data if SEOAnalyzer returns it directly or call other extractors
+            }
+
+            conn = sqlite3.connect('client_acquisition.db')
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO analysis_results (url, analysis_data, synced_to_hubspot)
+                VALUES (?, ?, ?)
+            ''', (url, json.dumps(full_analysis_result), False))
+
+            conn.commit()
+            conn.close()
+
+            analyzed_count += 1
+
+            # --- End Integrated Analysis Pipeline ---
+            
+            # Update progress
+            progress_bar.progress((i + 1) / len(urls))
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'analyse de {url}: {str(e)}")
+            st.error(f"Erreur lors de l'analyse de {url}: {str(e)}")
+            progress_bar.progress((i + 1) / len(urls))
+
+    st.success(f"Analyse terminée pour {analyzed_count} URL(s) !")
+
+
 
 # URL Input Section
 st.header("Analyse d'URL")
@@ -66,196 +186,452 @@ if st.button("Analyser les URLs"):
         # Simple URL validation (can be enhanced)
         valid_urls = []
         for url in urls:
+            # Add http:// if not present for basic validation
+            if not urlparse(url).scheme in ['http', 'https']:
+                 url = 'http://' + url
             if urlparse(url).scheme in ['http', 'https']:
                 valid_urls.append(url)
             else:
                 st.warning(f"URL invalide ignorée : {url} (schéma manquant ou incorrect)")
                 
-        if not valid_urls:
-            st.error("Aucune URL valide à analyser.")
-            st.stop()
+        run_analysis_pipeline(valid_urls)
 
-        st.info(f"Analyse de {len(valid_urls)} URL(s) en cours...")
-        progress_bar = st.progress(0)
-        analyzed_count = 0
 
-        for i, url in enumerate(valid_urls):
+def _extract_navigation_links(html: str, base_url: str) -> List[str]:
+    """
+    Extracts relevant internal navigation links from HTML.
+    """
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+        base_domain = urlparse(base_url).netloc
+        internal_links = set()
+        
+        # Find common navigation elements and links within them
+        nav_tags = soup.find_all(['nav', 'header', 'footer'])
+        
+        for tag in nav_tags:
+            for link in tag.find_all('a', href=True):
+                href = link['href']
+                # Ignore anchor links, mailto, tel, etc.
+                if href.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
+                    continue
+                
+                full_url = urljoin(base_url, href)
+                parsed_full_url = urlparse(full_url)
+                
+                # Only include internal links and avoid file paths or simple / links (unless it's the base)
+                if parsed_full_url.netloc == base_domain and parsed_full_url.scheme in ['http', 'https']:
+                     # Basic check to avoid very short or potentially irrelevant links
+                    if len(parsed_full_url.path) > 1 or parsed_full_url.path == '/':
+                         internal_links.add(full_url)
+        
+        # Prioritize certain keywords in URLs if needed (optional)
+        # relevant_links = [link for link in internal_links if any(keyword in link for keyword in ['services', 'about', 'contact'])]
+        # If we want to limit the number of links:
+        # return relevant_links[:limit] if limit else relevant_links
+        
+        return list(internal_links)
+        
+    except Exception as e:
+        logger.error(f"Error extracting navigation links from {base_url}: {str(e)}")
+        return []
+
+def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
+    """
+    Performs business search, finds unanalyzed websites for this query,
+    analyzes them (homepage + nav links), and stores results.
+    """
+    search_query = f"{industry} in {city}"
+    st.info(f"Searching for {search_query}...")
+    
+    if not google_places_client.api_key:
+        st.error("Google Places API key not found. Please add GOOGLE_PLACES_API_KEY to your .env file.")
+        return
+        
+    conn = sqlite3.connect('client_acquisition.db')
+    cursor = conn.cursor()
+    
+    # Find businesses for this search query that haven't been analyzed yet
+    # This requires fetching more places than needed initially to find unanalyzed ones
+    # For simplicity, let's fetch a reasonable number (e.g., 50) and filter locally
+    all_places = google_places_client.search_places(keyword=industry, location=city, radius=50000)
+    
+    if not all_places:
+        st.warning(f"No businesses found for {search_query}.")
+        conn.close()
+        return
+    
+    st.info(f"Found {len(all_places)} potential businesses via Google Places. Checking analysis status...")
+    
+    unanalyzed_businesses = []
+    for place in all_places:
+        place_id = place.get('place_id')
+        if not place_id:
+            continue
+            
+        # Check if this business (by place_id) has been analyzed for this specific search_query
+        cursor.execute('''
+            SELECT b.id FROM businesses b
+            JOIN analysis_results ar ON b.id = ar.business_id
+            WHERE b.place_id = ? AND b.search_query = ?
+            LIMIT 1
+        ''', (place_id, search_query))
+        already_analyzed = cursor.fetchone()
+        
+        if not already_analyzed:
+            # Get place details to ensure we have the website
+            details = google_places_client.get_place_details(place_id)
+            if details and 'website' in details:
+                unanalyzed_businesses.append({
+                    'place_id': place_id,
+                    'name': details.get('name'),
+                    'address': details.get('formatted_address'),
+                    'website': details['website']
+                })
+        
+        if len(unanalyzed_businesses) >= batch_size:
+            break # Found enough unanalyzed businesses for this batch
+
+    conn.close()
+
+    if not unanalyzed_businesses:
+        st.warning(f"No new unanalyzed businesses found for {search_query}.")
+        return
+
+    st.info(f"Analyzing {len(unanalyzed_businesses)} new businesses...")
+    business_analysis_progress = st.progress(0, text="Analyzing businesses...")
+
+    for i, business in enumerate(unanalyzed_businesses):
+        business_url = business['website']
+        st.write(f"Analyzing business: {business.get('name', 'N/A')} ({business_url})")
+        
+        try:
+            conn = sqlite3.connect('client_acquisition.db')
+            cursor = conn.cursor()
+            
+            # Insert the business into the database if it doesn't exist for this query
+            cursor.execute('''
+                INSERT OR IGNORE INTO businesses (search_query, place_id, name, address, website)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (search_query, business['place_id'], business['name'], business['address'], business['website']))
+            
+            # Get the business_id
+            cursor.execute('SELECT id FROM businesses WHERE place_id = ? LIMIT 1', (business['place_id'],))
+            business_id = cursor.fetchone()[0]
+            
+            conn.commit()
+            conn.close()
+
+            # --- Analysis for Homepage ---
+            st.write(f"- Analyzing homepage: {business_url}")
             try:
-                # --- Integrated Analysis Pipeline ---
-                st.write(f"Analyse de : {url}")
+                response = requests.get(business_url, timeout=15) # Fetch homepage HTML
+                response.raise_for_status()
+                homepage_html = response.text
                 
-                # 1. Fetch HTML
-                try:
-                    response = requests.get(url, timeout=15) # Added timeout
-                    response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-                    html_content = response.text
-                except requests.exceptions.RequestException as e:
-                    st.error(f"Erreur de requête pour {url}: {str(e)}")
-                    progress_bar.progress((i + 1) / len(valid_urls))
-                    continue # Skip to the next URL
-
-                # 2. Extract Contact Info
-                contact_info = contact_extractor.extract_from_html(html_content, url)
-
-                # 3. Perform SEO Analysis
-                seo_analysis = seo_analyzer.analyze_html(html_content, url)
+                homepage_analysis = seo_analyzer.analyze_html(homepage_html, business_url) # Analyze homepage HTML
+                if homepage_analysis:
+                     conn = sqlite3.connect('client_acquisition.db')
+                     cursor = conn.cursor()
+                     cursor.execute('''
+                         INSERT INTO analysis_results (business_id, url, analysis_data, synced_to_hubspot)
+                         VALUES (?, ?, ?, ?)
+                     ''', (business_id, business_url, json.dumps(homepage_analysis), False))
+                     conn.commit()
+                     conn.close()
+                     st.success("  Homepage analysis complete and saved.")
                 
-                # 4. Combine data for LLM (including basic extracted info)
-                # Prepare content for LLM - adjust based on what analyze_html and extract_from_html return
-                llm_content = {
-                    "url": url,
-                    "contact_info": contact_info,
-                    "seo_analysis": seo_analysis,
-                    # You might add more specific text content extraction here if needed for LLM
-                    # For now, passing the structured analysis results
+                # --- Analysis for Navigation Links (Limited) ---
+                st.write("- Extracting and analyzing navigation links...")
+                nav_links = _extract_navigation_links(homepage_html, business_url)
+                st.write(f"  Found {len(nav_links)} potential navigation links.")
+                
+                # Limit the number of navigation links to analyze (e.g., max 3)
+                links_to_analyze = nav_links[:3]
+                
+                for link_url in links_to_analyze:
+                    st.write(f"  - Analyzing navigation link: {link_url}")
+                    link_analysis = seo_analyzer.analyze_url(link_url) # Analyze navigation link URL
+                    if link_analysis:
+                         conn = sqlite3.connect('client_acquisition.db')
+                         cursor = conn.cursor()
+                         cursor.execute('''
+                             INSERT INTO analysis_results (business_id, url, analysis_data, synced_to_hubspot)
+                             VALUES (?, ?, ?, ?)
+                         ''', (business_id, link_url, json.dumps(link_analysis), False))
+                         conn.commit()
+                         conn.close()
+                         st.success(f"    Analysis complete and saved for {link_url}.")
+            
+            except requests.exceptions.RequestException as e:
+                 st.error(f"  Error fetching or analyzing homepage {business_url}: {str(e)}")
+
+            business_analysis_progress.progress((i + 1) / len(unanalyzed_businesses), text=f"Analyzing businesses... {i+1}/{len(unanalyzed_businesses)}")
+
+        except Exception as e:
+             logger.error(f"Error analyzing business {business.get('name')}: {str(e)}")
+             st.error(f"Error analyzing business {business.get('name')}: {str(e)}")
+
+    business_analysis_progress.empty()
+    st.success(f"Analysis complete for {len(unanalyzed_businesses)} new businesses!")
+    
+    # After analysis, reload data to display new results
+    st.experimental_rerun() # Rerun the app to show updated data
+
+# Helper function to display a single analysis result dictionary.
+def _display_analysis_result(analysis_result: Dict, hubspot_available: bool):
+    """
+    Helper function to display a single analysis result dictionary.
+    """
+    # Display Contact Information (if available and extracted)
+    contact_info = analysis_result.get('contact_info', {})
+    if contact_info:
+         st.subheader("Coordonnées")
+         emails = contact_info.get('emails', [])
+         st.write("Emails:", ", ".join(emails) if isinstance(emails, list) else "N/A")
+         phones = contact_info.get('phones', [])
+         st.write("Téléphones:", ", ".join(phones) if isinstance(phones, list) else "N/A")
+    
+    # Display SEO Analysis
+    st.subheader("Analyse SEO")
+    seo = analysis_result.get('seo_analysis', {})
+    
+    # Display individual check results
+    if seo:
+        st.write(f"**Overall Score:** {seo.get('overall_score', 'N/A')}/100")
+        
+        # Display results for each checker
+        for check_name, check_result in seo.get('checks', {}).items():
+            st.subheader(f"{check_name.replace('_', ' ').title()} Check")
+            if 'error' in check_result:
+                st.error(f"Error running check: {check_result['error']}")
+            else:
+                # Display key-value pairs from check results
+                for key, value in check_result.items():
+                    if key != 'recommendations': # Recommendations are displayed separately
+                        st.write(f"**{key.replace('_', ' ').title()}:** {value}")
+                
+                # Display recommendations for this specific check
+                check_recommendations = check_result.get('recommendations', [])
+                if check_recommendations:
+                    st.write("**Recommendations:**")
+                    for rec in check_recommendations:
+                        st.write(f"- {rec}")
+        
+        # Display overall recommendations
+        overall_recommendations = seo.get('recommendations', [])
+        if overall_recommendations:
+            st.subheader("Overall Recommendations")
+            for rec in overall_recommendations:
+                st.write(f"- {rec}")
+        
+        # Display critical issues
+        critical_issues = seo.get('critical_issues', [])
+        if critical_issues:
+            st.subheader("Critical Issues")
+            for issue in critical_issues:
+                st.error(f"- {issue}")
+    else:
+        st.write("SEO analysis results not available.")
+    
+    # Display AI Analysis
+    ai_analysis = analysis_result.get('ai_analysis', {})
+    if isinstance(ai_analysis, dict):
+        st.subheader("Analyse IA")
+        st.write(ai_analysis.get('response', 'Aucune analyse IA disponible'))
+    
+    # Display Recommendations from AI Analysis
+    ai_recommendations = analysis_result.get('recommendations', [])
+    if ai_recommendations:
+         st.subheader("Recommandations IA")
+         for rec in ai_recommendations:
+              st.write(f"- {rec}")
+
+    # HubSpot Integration Button (adjust key for uniqueness)
+    if hubspot_available:
+        # Use a unique key based on the URL being displayed
+        if st.button(f"Pousser vers HubSpot ({analysis_result.get('url', 'N/A')})", key=f"hubspot_{analysis_result.get('url')}"):
+            with st.spinner("Envoi vers HubSpot..."):
+                # Prepare data for HubSpot (adjust field names as needed)
+                hubspot_contact_info = {
+                    "email": contact_info.get('emails', [''])[0], # Take the first email
+                    "website": analysis_result.get('url', ''), # Use the analyzed URL as the website
+                    "seo_analysis": json.dumps(seo) if seo else '', # Convert dict to JSON string
+                    "ai_analysis": json.dumps(ai_analysis) if isinstance(ai_analysis, dict) else '', # Convert dict to JSON string
+                    # You might want to add business name/details here if available from business search
                 }
                 
-                # 5. Generate AI Analysis using Ollama
-                # Note: The generate_seo_analysis prompt in ollama_client.py might need adjustment
-                # to better utilize the structured seo_analysis and contact_info data
-                ai_analysis = ollama_client.generate_seo_analysis(url, llm_content)
-
-                # 6. Prepare full analysis result to save
-                full_analysis_result = {
-                    "url": url,
-                    "contact_info": contact_info,
-                    "seo_analysis": seo_analysis,
-                    "ai_analysis": ai_analysis,
-                    "recommendations": ai_analysis.get('response', '').split('\n') if isinstance(ai_analysis, dict) and ai_analysis.get('response') else [] # Simple split for display
-                }
-
-                # 7. Store in SQLite
-                conn = sqlite3.connect('client_acquisition.db')
-                cursor = conn.cursor()
-                # Check if URL already exists to avoid duplicate primary key error
-                cursor.execute('SELECT url FROM analysis_results WHERE url = ?', (url,))
-                existing_url = cursor.fetchone()
-                
-                if existing_url:
-                    # Update existing record
-                    cursor.execute('''
-                        UPDATE analysis_results
-                        SET analysis_data = ?, synced_to_hubspot = ?
-                        WHERE url = ?
-                    ''', (json.dumps(full_analysis_result), False, url))
-                    st.info(f"Mise à jour de l'analyse pour : {url}")
+                contact_id = hubspot_client.create_or_update_contact(hubspot_contact_info)
+                if contact_id:
+                    st.success(f"Envoyé avec succès vers HubSpot pour {analysis_result.get('url', 'N/A')} !")
                 else:
-                    # Insert new record
-                    cursor.execute('''
-                        INSERT INTO analysis_results (url, analysis_data, synced_to_hubspot)
-                        VALUES (?, ?, ?)
-                    ''', (url, json.dumps(full_analysis_result), False))
-                    st.info(f"Nouvelle analyse enregistrée pour : {url}")
-
-                conn.commit()
-                conn.close()
-
-                analyzed_count += 1
-
-                # --- End Integrated Analysis Pipeline ---
-                
-                # Update progress
-                progress_bar.progress((i + 1) / len(valid_urls))
-                
-            except Exception as e:
-                st.error(f"Erreur lors de l'analyse de {url}: {str(e)}")
-                progress_bar.progress((i + 1) / len(valid_urls))
-
-        st.success(f"Analyse terminée pour {analyzed_count} URL(s) !")
+                    st.error(f"Échec de l'envoi vers HubSpot pour {analysis_result.get('url', 'N/A')}")
 
 # Load and display results
 def load_data():
+    """
+    Loads all analysis results, organized by business or direct URL.
+    """
     try:
         conn = sqlite3.connect('client_acquisition.db')
         cursor = conn.cursor()
-        # Only select analysis_data column as before
-        cursor.execute('SELECT analysis_data FROM analysis_results')
-        results = [json.loads(row[0]) for row in cursor.fetchall()]
+        
+        # Fetch businesses and their linked analysis results
+        cursor.execute('''
+            SELECT b.name, b.website, b.search_query, ar.url, ar.analysis_data
+            FROM businesses b
+            JOIN analysis_results ar ON b.id = ar.business_id
+            ORDER BY b.search_query, b.name, ar.url
+        ''')
+        business_results = cursor.fetchall()
+        
+        # Fetch analysis results from direct URL input (where business_id is NULL)
+        cursor.execute('''
+            SELECT NULL, ar.url, NULL, ar.url, ar.analysis_data
+            FROM analysis_results ar
+            WHERE ar.business_id IS NULL
+            ORDER BY ar.url
+        ''')
+        direct_url_results = cursor.fetchall()
+        
         conn.close()
-        return results
+        
+        # Organize results for display
+        organized_results = defaultdict(lambda: defaultdict(list))
+        
+        # Add business search results
+        for name, website, search_query, url, analysis_data_json in business_results:
+            organized_results[f"Search: {search_query}"][f"Business: {name} ({website})"][url].append(json.loads(analysis_data_json))
+            
+        # Add direct URL results
+        for _, url, _, _, analysis_data_json in direct_url_results:
+             # Use a distinct key for direct URLs, e.g., based on the URL itself
+             # Simpler structure for direct URLs: { url: analysis_dict }
+             organized_results["Direct URLs"][url] = json.loads(analysis_data_json)
+        
+        return organized_results
+        
     except Exception as e:
         st.error(f"Erreur lors du chargement des données : {e}")
-        return []
+        return {}
 
-data = load_data()
+# Display results
+st.header("Résultats de l'analyse")
 
-if data:
-    # Summary statistics
-    st.header("Résumé de l'analyse")
+organized_data = load_data()
+
+if organized_data:
+    # Summary statistics (can be updated to reflect new data structure)
+    # st.header("Résumé de l'analyse") # Already have this header
     col1, col2, col3, col4 = st.columns(4)
     
-    unique_domains = len(set(urlparse(r['url']).netloc for r in data if 'url' in r))
-    total_emails = sum(len(r.get('contact_info', {}).get('emails', [])) for r in data if 'contact_info' in r)
-    sites_with_email = sum(1 for r in data if r.get('contact_info', {}).get('emails'))
-    sites_with_phone = sum(1 for r in data if r.get('contact_info', {}).get('phones'))
+    # Simplified summary for now - count total analyzed URLs and businesses
+    total_analyzed_urls = sum(len(analysis_list) for businesses_or_urls in organized_data.values() for pages in businesses_or_urls.values() for analysis_list in pages.values())
+    total_businesses = sum(len(businesses) for key, businesses in organized_data.items() if key.startswith("Search:"))
+    total_direct_urls = len(organized_data.get("Direct URLs", {}))
     
-    col1.metric("Total Entreprises", unique_domains)
-    col2.metric("Total Contacts", total_emails)
-    col3.metric("Sites avec Email", sites_with_email)
-    col4.metric("Sites avec Téléphone", sites_with_phone)
+    col1.metric("Total URLs Analysées", total_analyzed_urls)
+    col2.metric("Total Entreprises Trouvées", total_businesses)
+    col3.metric("Total URLs Directes Analysées", total_direct_urls)
+    # col4.metric("Sites avec Téléphone", "N/A") # Update or remove
     
     # Detailed Results
-    st.header("Analyse détaillée")
-    for result in data:
-        # Added checks for keys in result dictionary
-        url = result.get('url', 'URL inconnue')
-        with st.expander(f"Analyse pour {url}"):
-            # Contact Information
-            st.subheader("Coordonnées")
-            contact_info = result.get('contact_info', {})
-            st.write("Emails:", ", ".join(contact_info.get('emails', [])))
-            st.write("Téléphones:", ", ".join(contact_info.get('phones', [])))
-            
-            # SEO Analysis
-            st.subheader("Analyse SEO")
-            seo = result.get('seo_analysis', {})
-            st.write("Titre:", seo.get('title', {}).get('text', 'N/A'))
-            st.write("Meta Description:", seo.get('meta_description', {}).get('text', 'N/A'))
-            st.write("Nombre de mots:", seo.get('content_analysis', {}).get('word_count', 'N/A'))
-            
-            # AI Analysis
-            st.subheader("Analyse IA")
-            ai_analysis = result.get('ai_analysis', {})
-            if isinstance(ai_analysis, dict):
-                st.write(ai_analysis.get('response', 'Aucune analyse IA disponible'))
-            
-            # Recommendations from AI Analysis
-            st.subheader("Recommandations")
-            recommendations = result.get('recommendations', [])
-            if recommendations:
-                for rec in recommendations:
-                    st.write(f"- {rec}")
+    # st.header("Analyse détaillée") # Already have this header
+
+    for group_name, businesses_or_urls in organized_data.items():
+        st.subheader(group_name)
+        for business_or_url, pages in businesses_or_urls.items():
+            # Check if it's a business search result group or direct URL input group
+            if group_name.startswith("Search:"):
+                # This is a business search result (grouped by business)
+                with st.expander(business_or_url): # business_or_url is like "Business: Name (website)"
+                     for page_url, analyses in pages.items(): # pages is like { page_url: [analysis_dict] }
+                          st.write(f"**Page:** {page_url}")
+                          for analysis_result in analyses:
+                               _display_analysis_result(analysis_result, hubspot_available)
             else:
-                st.write("Aucune recommandation disponible.")
+                # This is a direct URL input group
+                url = business_or_url # business_or_url is the URL string directly
+                analysis_result = pages # pages is the analysis dictionary directly
+                with st.expander(url):
+                    _display_analysis_result(analysis_result, hubspot_available)
 
-            # HubSpot Integration Button
-            if hubspot_available:
-                # Use url in key to ensure uniqueness if URLs are identical after parsing (unlikely but safe)
-                if st.button(f"Pousser vers HubSpot", key=f"hubspot_{url}"):
-                    with st.spinner("Envoi vers HubSpot..."):
-                        # Prepare contact_info for HubSpot (adjust field names as needed by HubSpotClient)
-                        hubspot_contact_info = {
-                            "email": contact_info.get('emails', [''])[0], # Take the first email
-                            "website": url,
-                            # Pass SEO and AI analysis as strings (or map to specific HubSpot properties)
-                            "seo_analysis": json.dumps(seo), # Convert dict to JSON string
-                            "recommendations": json.dumps(ai_analysis) # Convert dict to JSON string
-                        }
-                        
-                        contact_id = hubspot_client.create_or_update_contact(hubspot_contact_info)
-                        if contact_id:
-                            # Optional: Update DB to mark as synced (requires adding synced_to_hubspot to schema)
-                            # For now, just show success message
-                            # update_synced_status(url, True)
-                            st.success(f"Envoyé avec succès vers HubSpot pour {url} !")
-                        else:
-                            st.error(f"Échec de l'envoi vers HubSpot pour {url}")
+    # Download option
+    if organized_data:
+        # Flatten the organized_data into a list of rows for export
+        csv_rows = []
 
-# Download option
-if data:
-    st.download_button(
-        label="Télécharger les résultats d'analyse (CSV)",
-        data=pd.DataFrame(data).to_csv(index=False),
-        file_name="analysis_results.csv",
-        mime="text/csv"
-    )
+        for group_name, businesses_or_urls in organized_data.items():
+            for business_or_url, pages in businesses_or_urls.items():
+                if group_name.startswith("Search:"):
+                    for page_url, analyses in pages.items():
+                        for analysis_result in analyses:
+                            # Extract contact info, SEO, and AI analysis for CSV
+                            contact_info = analysis_result.get('contact_info', {})
+                            seo = analysis_result.get('seo_analysis', {})
+                            ai_analysis = analysis_result.get('ai_analysis', {})
+                            
+                            csv_rows.append({
+                                "Group": group_name,
+                                "Business": business_or_url, # This contains Name (Website)
+                                "URL": page_url,
+                                "SEO Score": seo.get("overall_score", "N/A"),
+                                "Critical Issues": ", ".join(seo.get("critical_issues", [])),
+                                "Emails": ", ".join(contact_info.get('emails', [])),
+                                "Phones": ", ".join(contact_info.get('phones', [])),
+                                "AI Analysis": ai_analysis.get('response', '') if isinstance(ai_analysis, dict) else '',
+                                # Add other fields as needed
+                            })
+                else:  # Direct URL group
+                    # For direct URLs, business_or_url is the URL itself
+                    url = business_or_url
+                    analysis_result = pages # pages is the analysis dictionary directly for direct URLs
+                    
+                    # Extract contact info, SEO, and AI analysis for CSV
+                    contact_info = analysis_result.get('contact_info', {})
+                    seo = analysis_result.get('seo_analysis', {})
+                    ai_analysis = analysis_result.get('ai_analysis', {})
+                    
+                    csv_rows.append({
+                        "Group": group_name,
+                        "Business": "N/A", # No business info for direct URLs
+                        "URL": url,
+                        "SEO Score": seo.get("overall_score", "N/A"),
+                        "Critical Issues": ", ".join(seo.get("critical_issues", [])),
+                        "Emails": ", ".join(contact_info.get('emails', [])),
+                        "Phones": ", ".join(contact_info.get('phones', [])),
+                        "AI Analysis": ai_analysis.get('response', '') if isinstance(ai_analysis, dict) else '',
+                        # Add other fields as needed
+                    })
+
+        # Only show the download button if we have data
+        if csv_rows:
+            df = pd.DataFrame(csv_rows)
+            st.download_button(
+                label="Télécharger les résultats d'analyse (CSV)",
+                data=df.to_csv(index=False),
+                file_name="analysis_results.csv",
+                mime="text/csv"
+            )
+
+
+# Business Search Section (New)
+st.header("Business Search by City and Industry")
+st.write("Search for businesses based on location and category. This uses the Google Places API.")
+st.warning("A Google Places API key is required for this feature. Add `GOOGLE_PLACES_API_KEY='YOUR_API_KEY'` to your `.env` file.")
+
+city = st.text_input("City", help="Enter the city name (e.g., London)")
+industry = st.text_input("Industry / Business Type", help="Enter the type of business (e.g., digital marketing agency)")
+
+# Add a batch size input
+batch_size = st.number_input("Number of businesses to analyze per search", min_value=1, value=5, step=1)
+
+if st.button("Start Business Search"):
+    if not city or not industry:
+        st.error("Please enter both City and Industry.")
+    else:
+        run_business_search_analysis(city, industry, batch_size)
+
+# Placeholder for displaying business search results (Now handled by the main display logic)
+# st.subheader("Business Search Results")
+# st.write("Search results will appear here after you run a search.")

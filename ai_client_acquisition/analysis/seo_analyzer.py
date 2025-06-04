@@ -8,6 +8,18 @@ import re
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 import nltk
+from .seo_checks import (
+    TitleTagChecker,
+    MetaTagsChecker,
+    H1Checker,
+    WordCountChecker,
+    SSLChecker,
+    BrokenLinksChecker,
+    ImageAltChecker,
+    RedirectChecker,
+    SitemapChecker,
+    RobotsChecker
+)
 
 # Download required NLTK data
 try:
@@ -26,8 +38,16 @@ logger = logging.getLogger(__name__)
 class SEOAnalyzer:
     def __init__(self):
         self.stop_words = set(stopwords.words('english'))
-        self.title_max_length = 60
-        self.meta_description_max_length = 160
+        self.title_checker = TitleTagChecker()
+        self.meta_checker = MetaTagsChecker()
+        self.h1_checker = H1Checker()
+        self.word_count_checker = WordCountChecker()
+        self.ssl_checker = SSLChecker()
+        self.broken_links_checker = BrokenLinksChecker()
+        self.image_alt_checker = ImageAltChecker()
+        self.redirect_checker = RedirectChecker()
+        self.sitemap_checker = SitemapChecker()
+        self.robots_checker = RobotsChecker()
 
     def analyze_url(self, url: str) -> Dict:
         """
@@ -45,159 +65,90 @@ class SEOAnalyzer:
         """
         Analyze SEO elements from HTML content.
         """
-        soup = BeautifulSoup(html, 'html.parser')
-        
-        # Initialize result dictionary
-        result = {
-            'title': self._analyze_title(soup),
-            'meta_description': self._analyze_meta_description(soup),
-            'headers': self._analyze_headers(soup),
-            'keywords': self._extract_keywords(soup),
-            'links': self._analyze_links(soup, base_url),
-            'images': self._analyze_images(soup),
-            'content_analysis': self._analyze_content(soup)
-        }
-        
-        return result
+        try:
+            # Run all SEO checks
+            title_analysis = self.title_checker.check(html)
+            meta_analysis = self.meta_checker.check(html)
+            h1_analysis = self.h1_checker.check(html)
+            word_count_analysis = self.word_count_checker.check(html)
+            ssl_analysis = self.ssl_checker.check(base_url)
+            broken_links_analysis = self.broken_links_checker.check(html, base_url)
+            image_alt_analysis = self.image_alt_checker.check(html)
+            redirect_analysis = self.redirect_checker.check(base_url)
+            sitemap_analysis = self.sitemap_checker.check(base_url)
+            robots_analysis = self.robots_checker.check(base_url)
+            
+            # Combine all analyses
+            result = {
+                'title': title_analysis,
+                'meta_tags': meta_analysis,
+                'h1': h1_analysis,
+                'word_count': word_count_analysis,
+                'ssl': ssl_analysis,
+                'broken_links': broken_links_analysis,
+                'images': image_alt_analysis,
+                'redirects': redirect_analysis,
+                'sitemap': sitemap_analysis,
+                'robots': robots_analysis,
+                'keywords': self._extract_keywords(html),
+                'content_analysis': self._analyze_content(html)
+            }
+            
+            # Add overall recommendations
+            result['recommendations'] = self._get_overall_recommendations(result)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error analyzing HTML: {str(e)}")
+            return {}
 
-    def _analyze_title(self, soup: BeautifulSoup) -> Dict:
-        """
-        Analyze the page title.
-        """
-        title_tag = soup.find('title')
-        title = title_tag.get_text() if title_tag else ''
-        
-        return {
-            'text': title,
-            'length': len(title),
-            'is_optimal_length': len(title) <= self.title_max_length,
-            'has_keywords': bool(title),  # Basic check, can be enhanced
-            'recommendations': self._get_title_recommendations(title)
-        }
-
-    def _analyze_meta_description(self, soup: BeautifulSoup) -> Dict:
-        """
-        Analyze the meta description.
-        """
-        meta_desc = soup.find('meta', attrs={'name': 'description'})
-        description = meta_desc.get('content', '') if meta_desc else ''
-        
-        return {
-            'text': description,
-            'length': len(description),
-            'is_optimal_length': len(description) <= self.meta_description_max_length,
-            'has_keywords': bool(description),  # Basic check, can be enhanced
-            'recommendations': self._get_meta_description_recommendations(description)
-        }
-
-    def _analyze_headers(self, soup: BeautifulSoup) -> Dict:
-        """
-        Analyze header structure and hierarchy.
-        """
-        headers = {
-            'h1': [],
-            'h2': [],
-            'h3': [],
-            'h4': [],
-            'h5': [],
-            'h6': []
-        }
-        
-        for tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-            headers[tag] = [h.get_text().strip() for h in soup.find_all(tag)]
-        
-        return {
-            'structure': headers,
-            'has_h1': len(headers['h1']) > 0,
-            'multiple_h1': len(headers['h1']) > 1,
-            'recommendations': self._get_header_recommendations(headers)
-        }
-
-    def _extract_keywords(self, soup: BeautifulSoup) -> Dict:
+    def _extract_keywords(self, html: str) -> Dict:
         """
         Extract and analyze keywords from the page.
         """
-        # Get all text content
-        text = ' '.join([p.get_text() for p in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])])
-        
-        # Tokenize and clean
-        words = word_tokenize(text.lower())
-        words = [word for word in words if word.isalnum() and word not in self.stop_words]
-        
-        # Count word frequencies
-        word_freq = Counter(words)
-        
-        # Get top keywords
-        top_keywords = word_freq.most_common(10)
-        
-        return {
-            'primary_keywords': [kw for kw, _ in top_keywords[:5]],
-            'secondary_keywords': [kw for kw, _ in top_keywords[5:]],
-            'keyword_density': self._calculate_keyword_density(word_freq, len(words))
-        }
-
-    def _analyze_links(self, soup: BeautifulSoup, base_url: str) -> Dict:
-        """
-        Analyze internal and external links.
-        """
-        internal_links = []
-        external_links = []
-        broken_links = []
-        
-        base_domain = urlparse(base_url).netloc
-        
-        for link in soup.find_all('a', href=True):
-            href = link['href']
-            full_url = urljoin(base_url, href)
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            text = ' '.join([p.get_text() for p in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])])
+            words = word_tokenize(text.lower())
+            words = [word for word in words if word.isalnum() and word not in self.stop_words]
+            word_freq = Counter(words)
+            top_keywords = word_freq.most_common(10)
             
-            # Skip javascript: and mailto: links
-            if href.startswith(('javascript:', 'mailto:')):
-                continue
-            
-            try:
-                if base_domain in full_url:
-                    internal_links.append(full_url)
-                else:
-                    external_links.append(full_url)
-            except Exception:
-                broken_links.append(full_url)
-        
-        return {
-            'internal_links': len(internal_links),
-            'external_links': len(external_links),
-            'broken_links': len(broken_links),
-            'recommendations': self._get_link_recommendations(internal_links, external_links, broken_links)
-        }
+            return {
+                'primary_keywords': [kw for kw, _ in top_keywords[:5]],
+                'secondary_keywords': [kw for kw, _ in top_keywords[5:]],
+                'keyword_density': self._calculate_keyword_density(word_freq, len(words))
+            }
+        except Exception as e:
+            logger.error(f"Error extracting keywords: {str(e)}")
+            return {
+                'primary_keywords': [],
+                'secondary_keywords': [],
+                'keyword_density': {}
+            }
 
-    def _analyze_images(self, soup: BeautifulSoup) -> Dict:
-        """
-        Analyze images and their alt text.
-        """
-        images = soup.find_all('img')
-        total_images = len(images)
-        images_with_alt = len([img for img in images if img.get('alt')])
-        images_without_alt = total_images - images_with_alt
-        
-        return {
-            'total_images': total_images,
-            'images_with_alt': images_with_alt,
-            'images_without_alt': images_without_alt,
-            'recommendations': self._get_image_recommendations(total_images, images_with_alt)
-        }
-
-    def _analyze_content(self, soup: BeautifulSoup) -> Dict:
+    def _analyze_content(self, html: str) -> Dict:
         """
         Analyze page content.
         """
-        # Get all text content
-        text = ' '.join([p.get_text() for p in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])])
-        words = word_tokenize(text)
-        
-        return {
-            'word_count': len(words),
-            'is_optimal_length': 300 <= len(words) <= 2000,  # Basic content length check
-            'recommendations': self._get_content_recommendations(len(words))
-        }
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            text = ' '.join([p.get_text() for p in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])])
+            words = word_tokenize(text)
+            
+            return {
+                'word_count': len(words),
+                'is_optimal_length': 300 <= len(words) <= 2000,
+                'recommendations': self._get_content_recommendations(len(words))
+            }
+        except Exception as e:
+            logger.error(f"Error analyzing content: {str(e)}")
+            return {
+                'word_count': 0,
+                'is_optimal_length': False,
+                'recommendations': ['Error analyzing content']
+            }
 
     def _calculate_keyword_density(self, word_freq: Counter, total_words: int) -> Dict:
         """
@@ -212,73 +163,6 @@ class SEOAnalyzer:
         
         return density
 
-    def _get_title_recommendations(self, title: str) -> List[str]:
-        """
-        Generate recommendations for the title.
-        """
-        recommendations = []
-        
-        if not title:
-            recommendations.append("Ajoutez une balise titre (title tag)")
-        elif len(title) > self.title_max_length:
-            recommendations.append(f"Le titre est trop long ({len(title)} caractères). Gardez-le sous {self.title_max_length} caractères")
-        
-        return recommendations
-
-    def _get_meta_description_recommendations(self, description: str) -> List[str]:
-        """
-        Generate recommendations for the meta description.
-        """
-        recommendations = []
-        
-        if not description:
-            recommendations.append("Ajoutez une meta description")
-        elif len(description) > self.meta_description_max_length:
-            recommendations.append(f"La meta description est trop longue ({len(description)} caractères). Gardez-la sous {self.meta_description_max_length} caractères")
-        
-        return recommendations
-
-    def _get_header_recommendations(self, headers: Dict) -> List[str]:
-        """
-        Generate recommendations for header structure.
-        """
-        recommendations = []
-        
-        if not headers['h1']:
-            recommendations.append("Ajoutez une balise H1 à la page")
-        elif len(headers['h1']) > 1:
-            recommendations.append("Utilisez une seule balise H1 par page")
-        
-        return recommendations
-
-    def _get_link_recommendations(self, internal_links: List[str], external_links: List[str], broken_links: List[str]) -> List[str]:
-        """
-        Generate recommendations for links.
-        """
-        recommendations = []
-        
-        if not internal_links:
-            recommendations.append("Ajoutez des liens internes pour améliorer la structure du site")
-        if not external_links:
-            recommendations.append("Envisagez d'ajouter des liens externes pertinents")
-        if broken_links:
-            recommendations.append(f"Corrigez {len(broken_links)} liens cassés")
-        
-        return recommendations
-
-    def _get_image_recommendations(self, total_images: int, images_with_alt: int) -> List[str]:
-        """
-        Generate recommendations for images.
-        """
-        recommendations = []
-        
-        if total_images == 0:
-            recommendations.append("Envisagez d'ajouter des images pertinentes pour améliorer l'engagement")
-        elif images_with_alt < total_images:
-            recommendations.append(f"Ajoutez un texte alternatif (alt) à {total_images - images_with_alt} images")
-        
-        return recommendations
-
     def _get_content_recommendations(self, word_count: int) -> List[str]:
         """
         Generate recommendations for content.
@@ -286,8 +170,58 @@ class SEOAnalyzer:
         recommendations = []
         
         if word_count < 300:
-            recommendations.append("Ajoutez plus de contenu (au moins 300 mots)")
+            recommendations.append('Add more content (at least 300 words)')
         elif word_count > 2000:
-            recommendations.append("Envisagez de diviser le contenu en plusieurs pages")
+            recommendations.append('Consider splitting the content into multiple pages')
+        
+        return recommendations
+
+    def _get_overall_recommendations(self, analysis: Dict) -> List[str]:
+        """
+        Generate overall recommendations based on all analyses.
+        """
+        recommendations = []
+        
+        # Title recommendations
+        if not analysis['title']['exists']:
+            recommendations.append('Add a title tag to your page')
+        elif not analysis['title']['is_optimal_length']:
+            recommendations.append(analysis['title']['recommendations'][0])
+        
+        # Meta description recommendations
+        if not analysis['meta_tags']['has_meta_description']:
+            recommendations.append('Add a meta description to your page')
+        elif not analysis['meta_tags']['is_optimal_length']:
+            recommendations.append(analysis['meta_tags']['recommendations'][0])
+        
+        # H1 recommendations
+        if not analysis['h1']['has_h1']:
+            recommendations.append('Add an H1 tag to your page')
+        elif analysis['h1']['has_multiple_h1']:
+            recommendations.append(analysis['h1']['recommendations'][0])
+        
+        # Content recommendations
+        if not analysis['content_analysis']['is_optimal_length']:
+            recommendations.append(analysis['content_analysis']['recommendations'][0])
+        
+        # SSL recommendations
+        if not analysis['ssl']['is_secure']:
+            recommendations.append('Enable HTTPS for your website')
+        
+        # Broken links recommendations
+        if analysis['broken_links']['broken_links_count'] > 0:
+            recommendations.append(f'Fix {analysis["broken_links"]["broken_links_count"]} broken links')
+        
+        # Image alt text recommendations
+        if analysis['images']['images_without_alt'] > 0:
+            recommendations.append(f'Add alt text to {analysis["images"]["images_without_alt"]} images')
+        
+        # Sitemap recommendations
+        if not analysis['sitemap']['exists']:
+            recommendations.append('Add a sitemap.xml file')
+        
+        # Robots.txt recommendations
+        if not analysis['robots']['exists']:
+            recommendations.append('Add a robots.txt file')
         
         return recommendations 
