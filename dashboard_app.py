@@ -25,6 +25,45 @@ logger = logging.getLogger(__name__)
 # Set Streamlit page config first
 st.set_page_config(page_title="Tableau de bord d'acquisition de clients par IA", layout="wide")
 
+def _extract_navigation_links(html: str, base_url: str) -> List[str]:
+    """
+    Extracts relevant internal navigation links from HTML.
+    """
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+        base_domain = urlparse(base_url).netloc
+        internal_links = set()
+        
+        # Find common navigation elements and links within them
+        nav_tags = soup.find_all(['nav', 'header', 'footer'])
+        
+        for tag in nav_tags:
+            for link in tag.find_all('a', href=True):
+                href = link['href']
+                # Ignore anchor links, mailto, tel, etc.
+                if href.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
+                    continue
+                
+                full_url = urljoin(base_url, href)
+                parsed_full_url = urlparse(full_url)
+                
+                # Only include internal links and avoid file paths or simple / links (unless it's the base)
+                if parsed_full_url.netloc == base_domain and parsed_full_url.scheme in ['http', 'https']:
+                     # Basic check to avoid very short or potentially irrelevant links
+                    if len(parsed_full_url.path) > 1 or parsed_full_url.path == '/':
+                         internal_links.add(full_url)
+        
+        # Prioritize certain keywords in URLs if needed (optional)
+        # relevant_links = [link for link in internal_links if any(keyword in link for keyword in ['services', 'about', 'contact'])]
+        # If we want to limit the number of links:
+        # return relevant_links[:limit] if limit else relevant_links
+        
+        return list(internal_links)
+        
+    except Exception as e:
+        logger.error(f"Error extracting navigation links from {base_url}: {str(e)}")
+        return []
+
 def init_db():
     """Initialize the SQLite database and create the table if it doesn't exist.
     This version includes tables for business search results.
@@ -35,11 +74,11 @@ def init_db():
         
         # Drop existing tables for simplicity during development
         # In a production app, you would use ALTER TABLE or migration tools
-        cursor.execute('DROP TABLE IF EXISTS analysis_results')
-        cursor.execute('DROP TABLE IF EXISTS businesses')
+        # cursor.execute('DROP TABLE IF EXISTS analysis_results')
+        # cursor.execute('DROP TABLE IF EXISTS businesses')
 
         cursor.execute('''
-            CREATE TABLE businesses (
+            CREATE TABLE IF NOT EXISTS businesses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 search_query TEXT,
                 place_id TEXT UNIQUE,
@@ -50,7 +89,7 @@ def init_db():
         ''')
         
         cursor.execute('''
-            CREATE TABLE analysis_results (
+            CREATE TABLE IF NOT EXISTS analysis_results (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 business_id INTEGER,
                 url TEXT,
@@ -99,8 +138,11 @@ def run_analysis_pipeline(urls: List[str]):
     st.info(f"Analyse de {len(urls)} URL(s) en cours...")
     progress_bar = st.progress(0)
     analyzed_count = 0
+    
+    # Create a copy of the URLs to iterate over to prevent modifying the list during iteration
+    urls_to_process_in_this_run = list(urls)
 
-    for i, url in enumerate(urls):
+    for i, url in enumerate(urls_to_process_in_this_run):
         try:
             # Check if this URL (from direct input) already exists in analysis_results
             # This is a simplified check; ideally, you'd handle updates more granularly
@@ -112,7 +154,7 @@ def run_analysis_pipeline(urls: List[str]):
             
             if existing_analysis:
                 st.info(f"Skipping already analyzed URL (from direct input): {url}")
-                progress_bar.progress((i + 1) / len(urls))
+                progress_bar.progress((i + 1) / len(urls_to_process_in_this_run))
                 continue # Skip if already analyzed
 
             # --- Integrated Analysis Pipeline ---
@@ -123,23 +165,51 @@ def run_analysis_pipeline(urls: List[str]):
                 response = requests.get(url, timeout=15) # Added timeout
                 response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
                 html_content = response.text
+                
+                # Extract navigation links for multi-page analysis (only for the initial direct URL)
+                if i == 0: # Only extract links from the first URL provided directly by the user
+                    nav_links = _extract_navigation_links(html_content, url)
+                    st.info(f"Found {len(nav_links)} navigation links from {url}")
+                    # Limit the number of navigation links to analyze for direct URL input
+                    links_to_add = nav_links[:3] # Limit to top 3 navigation links
+                    # Add newly found links to the overall urls list for future processing (not in current run)
+                    # Note: These links are currently just being added to the overall list for future analysis
+                    # if the user re-runs or if the business search processes them.
+                    for link in links_to_add:
+                        # This logic will add them to the global 'urls' list used by the UI, but not process them in this run.
+                        # For a full crawler, this would be more sophisticated.
+                        if link not in urls: # 'urls' is the original input list (or global if used) - ensuring it's not re-added
+                            urls.append(link) # This appends to the original list, but the iteration is on urls_to_process_in_this_run
+
             except requests.exceptions.RequestException as e:
                 st.error(f"Erreur de requête pour {url}: {str(e)}")
-                progress_bar.progress((i + 1) / len(urls))
+                progress_bar.progress((i + 1) / len(urls_to_process_in_this_run))
                 continue # Skip to the next URL
 
             # 2. Extract Contact Info (This is done within SEOAnalyzer now, adjust if needed)
             # Assuming SEOAnalyzer handles contact extraction or we do it separately here if needed
 
             # 3. Perform SEO Analysis
-            seo_analysis = seo_analyzer.analyze_url(url) # Use analyze_url for fetching and analyzing
+            seo_analysis = seo_analyzer.analyze_html(html_content, url) # Use analyze_html with pre-fetched HTML
             
-            # 4. Combine data and store
+            # 4. Perform AI Analysis (using OllamaClient)
+            ai_analysis_result = {} # Initialize with empty dict
+            try:
+                # Pass raw HTML content for AI analysis, or a structured summary if preferred
+                ai_analysis_result = ollama_client.generate_seo_analysis(url, {"html_content_summary": html_content[:2000]}) # Limit content size
+                if "response" in ai_analysis_result:
+                    st.write("AI Analysis:", ai_analysis_result["response"][:200] + "...") # Show snippet
+            except Exception as ai_e:
+                logger.error(f"Error during AI analysis for {url}: {str(ai_e)}")
+                ai_analysis_result = {"error": str(ai_e), "response": "Error during AI analysis."}
+
+            # 5. Combine data and store
             # For direct URL input, we don't link to a specific business found via search
             # We'll store it directly in analysis_results with no business_id
             full_analysis_result = {
                 "url": url,
                 "seo_analysis": seo_analysis,
+                "ai_analysis": ai_analysis_result # Add AI analysis result
                 # Add other relevant data if SEOAnalyzer returns it directly or call other extractors
             }
 
@@ -158,12 +228,12 @@ def run_analysis_pipeline(urls: List[str]):
             # --- End Integrated Analysis Pipeline ---
             
             # Update progress
-            progress_bar.progress((i + 1) / len(urls))
+            progress_bar.progress((i + 1) / len(urls_to_process_in_this_run))
             
         except Exception as e:
             logger.error(f"Erreur lors de l'analyse de {url}: {str(e)}")
             st.error(f"Erreur lors de l'analyse de {url}: {str(e)}")
-            progress_bar.progress((i + 1) / len(urls))
+            progress_bar.progress((i + 1) / len(urls_to_process_in_this_run))
 
     st.success(f"Analyse terminée pour {analyzed_count} URL(s) !")
 
@@ -196,45 +266,6 @@ if st.button("Analyser les URLs"):
                 
         run_analysis_pipeline(valid_urls)
 
-
-def _extract_navigation_links(html: str, base_url: str) -> List[str]:
-    """
-    Extracts relevant internal navigation links from HTML.
-    """
-    try:
-        soup = BeautifulSoup(html, 'html.parser')
-        base_domain = urlparse(base_url).netloc
-        internal_links = set()
-        
-        # Find common navigation elements and links within them
-        nav_tags = soup.find_all(['nav', 'header', 'footer'])
-        
-        for tag in nav_tags:
-            for link in tag.find_all('a', href=True):
-                href = link['href']
-                # Ignore anchor links, mailto, tel, etc.
-                if href.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
-                    continue
-                
-                full_url = urljoin(base_url, href)
-                parsed_full_url = urlparse(full_url)
-                
-                # Only include internal links and avoid file paths or simple / links (unless it's the base)
-                if parsed_full_url.netloc == base_domain and parsed_full_url.scheme in ['http', 'https']:
-                     # Basic check to avoid very short or potentially irrelevant links
-                    if len(parsed_full_url.path) > 1 or parsed_full_url.path == '/':
-                         internal_links.add(full_url)
-        
-        # Prioritize certain keywords in URLs if needed (optional)
-        # relevant_links = [link for link in internal_links if any(keyword in link for keyword in ['services', 'about', 'contact'])]
-        # If we want to limit the number of links:
-        # return relevant_links[:limit] if limit else relevant_links
-        
-        return list(internal_links)
-        
-    except Exception as e:
-        logger.error(f"Error extracting navigation links from {base_url}: {str(e)}")
-        return []
 
 def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
     """
@@ -330,13 +361,22 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
                 homepage_html = response.text
                 
                 homepage_analysis = seo_analyzer.analyze_html(homepage_html, business_url) # Analyze homepage HTML
+                
+                # Perform AI Analysis for homepage
+                homepage_ai_analysis = {} # Initialize
+                try:
+                    homepage_ai_analysis = ollama_client.generate_seo_analysis(business_url, {"html_content_summary": homepage_html[:2000]})
+                except Exception as ai_e:
+                    logger.error(f"Error during AI analysis for homepage {business_url}: {str(ai_e)}")
+                    homepage_ai_analysis = {"error": str(ai_e), "response": "Error during AI analysis for homepage."}
+
                 if homepage_analysis:
                      conn = sqlite3.connect('client_acquisition.db')
                      cursor = conn.cursor()
                      cursor.execute('''
                          INSERT INTO analysis_results (business_id, url, analysis_data, synced_to_hubspot)
                          VALUES (?, ?, ?, ?)
-                     ''', (business_id, business_url, json.dumps(homepage_analysis), False))
+                     ''', (business_id, business_url, json.dumps({"seo_analysis": homepage_analysis, "ai_analysis": homepage_ai_analysis}), False))
                      conn.commit()
                      conn.close()
                      st.success("  Homepage analysis complete and saved.")
@@ -351,17 +391,33 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
                 
                 for link_url in links_to_analyze:
                     st.write(f"  - Analyzing navigation link: {link_url}")
-                    link_analysis = seo_analyzer.analyze_url(link_url) # Analyze navigation link URL
-                    if link_analysis:
-                         conn = sqlite3.connect('client_acquisition.db')
-                         cursor = conn.cursor()
-                         cursor.execute('''
-                             INSERT INTO analysis_results (business_id, url, analysis_data, synced_to_hubspot)
-                             VALUES (?, ?, ?, ?)
-                         ''', (business_id, link_url, json.dumps(link_analysis), False))
-                         conn.commit()
-                         conn.close()
-                         st.success(f"    Analysis complete and saved for {link_url}.")
+                    try:
+                        link_response = requests.get(link_url, timeout=15)
+                        link_response.raise_for_status()
+                        link_html_content = link_response.text
+
+                        link_seo_analysis = seo_analyzer.analyze_html(link_html_content, link_url) # Analyze navigation link HTML
+
+                        # Perform AI Analysis for navigation link
+                        link_ai_analysis = {} # Initialize
+                        try:
+                            link_ai_analysis = ollama_client.generate_seo_analysis(link_url, {"html_content_summary": link_html_content[:2000]})
+                        except Exception as ai_e:
+                            logger.error(f"Error during AI analysis for link {link_url}: {str(ai_e)}")
+                            link_ai_analysis = {"error": str(ai_e), "response": "Error during AI analysis for link."}
+
+                        if link_seo_analysis:
+                             conn = sqlite3.connect('client_acquisition.db')
+                             cursor = conn.cursor()
+                             cursor.execute('''
+                                 INSERT INTO analysis_results (business_id, url, analysis_data, synced_to_hubspot)
+                                 VALUES (?, ?, ?, ?)
+                             ''', (business_id, link_url, json.dumps({"seo_analysis": link_seo_analysis, "ai_analysis": link_ai_analysis}), False))
+                             conn.commit()
+                             conn.close()
+                             st.success(f"    Analysis complete and saved for {link_url}.")
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"  Error fetching or analyzing navigation link {link_url}: {str(e)}")
             
             except requests.exceptions.RequestException as e:
                  st.error(f"  Error fetching or analyzing homepage {business_url}: {str(e)}")
@@ -396,27 +452,40 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool):
     st.subheader("Analyse SEO")
     seo = analysis_result.get('seo_analysis', {})
     
-    # Display individual check results
     if seo:
         st.write(f"**Overall Score:** {seo.get('overall_score', 'N/A')}/100")
         
         # Display results for each checker
-        for check_name, check_result in seo.get('checks', {}).items():
-            st.subheader(f"{check_name.replace('_', ' ').title()} Check")
-            if 'error' in check_result:
-                st.error(f"Error running check: {check_result['error']}")
-            else:
-                # Display key-value pairs from check results
-                for key, value in check_result.items():
-                    if key != 'recommendations': # Recommendations are displayed separately
-                        st.write(f"**{key.replace('_', ' ').title()}:** {value}")
-                
-                # Display recommendations for this specific check
-                check_recommendations = check_result.get('recommendations', [])
-                if check_recommendations:
-                    st.write("**Recommendations:**")
-                    for rec in check_recommendations:
-                        st.write(f"- {rec}")
+        checks_results = seo.get('checks', {})
+        if checks_results:
+            st.subheader("Detailed Checks")
+            for check_name, check_result in checks_results.items():
+                st.write(f"**{check_name.replace('_', ' ').title()} Check:**")
+                if 'error' in check_result:
+                    st.error(f"Error running check: {check_result['error']}")
+                else:
+                    # Display key-value pairs from check results (excluding recommendations)
+                    details_to_display = {k: v for k, v in check_result.items() if k != 'recommendations'}
+                    if details_to_display:
+                        for key, value in details_to_display.items():
+                             # Format boolean values nicely
+                            if isinstance(value, bool):
+                                 st.write(f"  - {key.replace('_', ' ').title()}: {'Yes' if value else 'No'}")
+                            elif isinstance(value, list):
+                                 st.write(f"  - {key.replace('_', ' ').title()}: {value}") # Display list as is for now
+                            elif isinstance(value, dict):
+                                 st.write(f"  - {key.replace('_', ' ').title()}: {value}") # Display dict as is for now
+                            else:
+                                 st.write(f"  - {key.replace('_', ' ').title()}: {value}")
+                    
+                    # Display recommendations for this specific check
+                    check_recommendations = check_result.get('recommendations', [])
+                    if check_recommendations:
+                        st.write("  **Recommendations for this check:**")
+                        for rec in check_recommendations:
+                            st.write(f"    - {rec}")
+                    else:
+                        st.write("  No specific details available.")
         
         # Display overall recommendations
         overall_recommendations = seo.get('recommendations', [])
@@ -438,7 +507,15 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool):
     ai_analysis = analysis_result.get('ai_analysis', {})
     if isinstance(ai_analysis, dict):
         st.subheader("Analyse IA")
-        st.write(ai_analysis.get('response', 'Aucune analyse IA disponible'))
+        # Display only the 'response' from AI analysis, if available.
+        # If 'response' is not present, display the raw JSON for debugging.
+        if "response" in ai_analysis:
+            st.write(ai_analysis['response'])
+        elif "error" in ai_analysis:
+            st.error(f"Erreur lors de l'analyse IA : {ai_analysis['error']}")
+        else:
+            st.write('Aucune analyse IA disponible ou format inattendu.')
+            st.json(ai_analysis) # Display raw JSON for debugging unexpected formats
     
     # Display Recommendations from AI Analysis
     ai_recommendations = analysis_result.get('recommendations', [])

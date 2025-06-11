@@ -72,6 +72,7 @@ class SEOAnalyzer:
             h1_analysis = self.h1_checker.check(html)
             word_count_analysis = self.word_count_checker.check(html)
             ssl_analysis = self.ssl_checker.check(base_url)
+            logger.info(f"SSL Analysis Result: {ssl_analysis}")
             broken_links_analysis = self.broken_links_checker.check(html, base_url)
             image_alt_analysis = self.image_alt_checker.check(html)
             redirect_analysis = self.redirect_checker.check(base_url)
@@ -91,17 +92,49 @@ class SEOAnalyzer:
                 'sitemap': sitemap_analysis,
                 'robots': robots_analysis,
                 'keywords': self._extract_keywords(html),
-                'content_analysis': self._analyze_content(html)
+                'content_analysis': self._analyze_content(html),
+                'checks': {
+                    'title': title_analysis,
+                    'meta_tags': meta_analysis,
+                    'h1': h1_analysis,
+                    'word_count': word_count_analysis,
+                    'ssl': ssl_analysis,
+                    'broken_links': broken_links_analysis,
+                    'images': image_alt_analysis,
+                    'redirects': redirect_analysis,
+                    'sitemap': sitemap_analysis,
+                    'robots': robots_analysis,
+                }
             }
             
             # Add overall recommendations
             result['recommendations'] = self._get_overall_recommendations(result)
             
+            # Calculate and add overall score
+            result['overall_score'] = self._calculate_overall_score(result)
+            
             return result
             
         except Exception as e:
             logger.error(f"Error analyzing HTML: {str(e)}")
-            return {}
+            logger.error(f"Exception type: {type(e).__name__}, Exception message: {e}") # Detailed logging
+            # Return a simplified error response
+            return {
+                'overall_score': 0,
+                'recommendations': [f'An error occurred during SEO analysis: {e}'],
+                'checks': {
+                    'title': {'error': f'Analysis failed: {e}'},
+                    'meta_tags': {'error': f'Analysis failed: {e}'},
+                    'h1': {'error': f'Analysis failed: {e}'},
+                    'word_count': {'error': f'Analysis failed: {e}'},
+                    'ssl': {'error': f'Analysis failed: {e}'},
+                    'broken_links': {'error': f'Analysis failed: {e}'},
+                    'images': {'error': f'Analysis failed: {e}', 'all_have_alt': False},
+                    'redirects': {'error': f'Analysis failed: {e}'},
+                    'sitemap': {'error': f'Analysis failed: {e}'},
+                    'robots': {'error': f'Analysis failed: {e}'},
+                }
+            }
 
     def _extract_keywords(self, html: str) -> Dict:
         """
@@ -183,45 +216,81 @@ class SEOAnalyzer:
         recommendations = []
         
         # Title recommendations
-        if not analysis['title']['exists']:
+        if not analysis.get('title', {}).get('exists', False):
             recommendations.append('Add a title tag to your page')
-        elif not analysis['title']['is_optimal_length']:
-            recommendations.append(analysis['title']['recommendations'][0])
+        elif not analysis.get('title', {}).get('is_optimal_length', False):
+            recommendations.append(analysis.get('title', {}).get('recommendations', ['Analysis error'])[0])
         
         # Meta description recommendations
-        if not analysis['meta_tags']['has_meta_description']:
+        if not analysis.get('meta_tags', {}).get('has_meta_description', False):
             recommendations.append('Add a meta description to your page')
-        elif not analysis['meta_tags']['is_optimal_length']:
-            recommendations.append(analysis['meta_tags']['recommendations'][0])
+        elif not analysis.get('meta_tags', {}).get('is_optimal_length', False):
+            recommendations.append(analysis.get('meta_tags', {}).get('recommendations', ['Analysis error'])[0])
         
         # H1 recommendations
-        if not analysis['h1']['has_h1']:
+        if not analysis.get('h1', {}).get('has_h1', False):
             recommendations.append('Add an H1 tag to your page')
-        elif analysis['h1']['has_multiple_h1']:
-            recommendations.append(analysis['h1']['recommendations'][0])
+        elif analysis.get('h1', {}).get('has_multiple_h1', False):
+            recommendations.append('Remove extra H1 tags. Only one H1 tag is recommended.')
         
         # Content recommendations
-        if not analysis['content_analysis']['is_optimal_length']:
-            recommendations.append(analysis['content_analysis']['recommendations'][0])
+        if not analysis.get('content_analysis', {}).get('is_optimal_length', False):
+            recommendations.extend(analysis.get('content_analysis', {}).get('recommendations', []))
         
         # SSL recommendations
-        if not analysis['ssl']['is_secure']:
+        if not analysis.get('ssl', {}).get('is_secure', False):
             recommendations.append('Enable HTTPS for your website')
         
         # Broken links recommendations
-        if analysis['broken_links']['broken_links_count'] > 0:
+        if analysis.get('broken_links', {}).get('broken_links_count', 0) > 0:
             recommendations.append(f'Fix {analysis["broken_links"]["broken_links_count"]} broken links')
         
         # Image alt text recommendations
-        if analysis['images']['images_without_alt'] > 0:
-            recommendations.append(f'Add alt text to {analysis["images"]["images_without_alt"]} images')
+        if analysis.get('images', {}).get('images_without_alt', 0) > 0:
+            # Safely access images_without_alt for the recommendation string
+            images_without_alt_count = analysis.get('images', {}).get('images_without_alt', 0)
+            recommendations.append(f'Add alt text to {images_without_alt_count} images')
+        if analysis.get('images', {}).get('all_have_alt', True) is False:
+            recommendations.append('Ensure all images have descriptive alt text')
         
         # Sitemap recommendations
-        if not analysis['sitemap']['exists']:
+        if not analysis.get('sitemap', {}).get('exists', False):
             recommendations.append('Add a sitemap.xml file')
         
         # Robots.txt recommendations
-        if not analysis['robots']['exists']:
+        if not analysis.get('robots', {}).get('exists', False):
             recommendations.append('Add a robots.txt file')
         
-        return recommendations 
+        return recommendations
+
+    def _calculate_overall_score(self, analysis: Dict) -> int:
+        """
+        Calculate an overall SEO score based on analysis results.
+        Score out of 100.
+        """
+        score = 100 # Start with a perfect score
+        
+        # Deduct points for critical issues
+        if not analysis.get('ssl', {}).get('is_secure', False):
+            score -= 20
+        if not analysis.get('title', {}).get('exists', False):
+            score -= 15
+        if not analysis.get('meta_tags', {}).get('has_meta_description', False):
+            score -= 10
+        if not analysis.get('h1', {}).get('has_h1', False):
+            score -= 10
+        if analysis.get('h1', {}).get('has_multiple_h1', False):
+            score -= 10
+        
+        # Deduct points for warnings/optimizations
+        if not analysis.get('title', {}).get('is_optimal_length', False):
+            score -= 5
+        if not analysis.get('meta_tags', {}).get('is_optimal_length', False):
+            score -= 5
+        if not analysis.get('content_analysis', {}).get('is_optimal_length', False):
+            score -= 5
+        if analysis.get('broken_links', {}).get('broken_links_count', 0) > 0:
+            score -= 10
+        
+        # Ensure score doesn't go below 0
+        return max(0, score) 

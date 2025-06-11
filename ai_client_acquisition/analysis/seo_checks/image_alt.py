@@ -21,6 +21,7 @@ class ImageAltChecker:
             - images_with_alt (int): Number of images with alt text
             - images_without_alt (int): Number of images without alt text
             - images_with_empty_alt (int): Number of images with empty alt text
+            - all_have_alt (bool): Whether all images have alt text
             - recommendations (List[str]): List of recommendations
         """
         try:
@@ -54,6 +55,7 @@ class ImageAltChecker:
                 'images_with_alt': images_with_alt,
                 'images_without_alt': images_without_alt,
                 'images_with_empty_alt': images_with_empty_alt,
+                'all_have_alt': images_without_alt == 0 and images_with_empty_alt == 0,
                 'recommendations': recommendations
             }
             
@@ -64,5 +66,6 @@ class ImageAltChecker:
                 'images_with_alt': 0,
                 'images_without_alt': 0,
                 'images_with_empty_alt': 0,
+                'all_have_alt': False,
                 'recommendations': ['Error analyzing image alt text']
             } 

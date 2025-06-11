@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class BrokenLinksChecker:
     def __init__(self):
         self.timeout = 10
-        self.max_workers = 5
+        self.max_workers = 10
         self.max_links = 100  # Limit number of links to check
 
     def check(self, html: str, base_url: str) -> Dict:
