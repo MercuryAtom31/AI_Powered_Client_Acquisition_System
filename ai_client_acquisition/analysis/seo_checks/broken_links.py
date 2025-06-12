@@ -92,7 +92,15 @@ class BrokenLinksChecker:
         Check if a single link is working.
         """
         try:
-            response = requests.head(url, timeout=self.timeout, allow_redirects=True)
-            return response.status_code < 400
-        except RequestException:
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+            # Use requests.get instead of requests.head for more accurate broken link detection
+            # Set stream=True and iter_content to immediately close connection for efficiency
+            response = requests.get(url, timeout=self.timeout, allow_redirects=True, stream=True, headers=headers)
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            # Consume content to release connection if not already released by stream=True
+            for _ in response.iter_content(chunk_size=1024):
+                pass
+            return True
+        except RequestException as e:
+            logger.error(f"Link check failed for {url}: {e}") # Log the actual error
             return False 

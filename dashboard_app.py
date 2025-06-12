@@ -126,7 +126,7 @@ except Exception as e:
     hubspot_available = False
 
 
-def run_analysis_pipeline(urls: List[str]):
+def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
     """
     Runs the full analysis pipeline for a list of URLs and stores results.
     This is for direct URL input.
@@ -148,11 +148,16 @@ def run_analysis_pipeline(urls: List[str]):
             # This is a simplified check; ideally, you'd handle updates more granularly
             conn = sqlite3.connect('client_acquisition.db')
             cursor = conn.cursor()
+            if force_reanalysis:
+                # If force_reanalysis is true, delete existing analysis for this URL
+                cursor.execute('DELETE FROM analysis_results WHERE url = ?', (url,))
+                st.info(f"Forcing re-analysis for: {url}. Deleting old data.")
+            
             cursor.execute('SELECT id FROM analysis_results WHERE url = ?', (url,))
             existing_analysis = cursor.fetchone()
             conn.close()
             
-            if existing_analysis:
+            if existing_analysis and not force_reanalysis:
                 st.info(f"Skipping already analyzed URL (from direct input): {url}")
                 progress_bar.progress((i + 1) / len(urls_to_process_in_this_run))
                 continue # Skip if already analyzed
@@ -162,7 +167,8 @@ def run_analysis_pipeline(urls: List[str]):
             
             # 1. Fetch HTML
             try:
-                response = requests.get(url, timeout=15) # Added timeout
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+                response = requests.get(url, timeout=15, headers=headers) # Added headers
                 response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
                 html_content = response.text
                 
@@ -246,6 +252,7 @@ urls_input = st.text_area(
     height=150,
     help="Entrez une ou plusieurs URLs à analyser. Chaque URL doit être sur une nouvelle ligne."
 )
+force_reanalysis = st.checkbox("Forcer la ré-analyse des URLs existantes")
 
 if st.button("Analyser les URLs"):
     if not urls_input.strip():
@@ -264,7 +271,7 @@ if st.button("Analyser les URLs"):
             else:
                 st.warning(f"URL invalide ignorée : {url} (schéma manquant ou incorrect)")
                 
-        run_analysis_pipeline(valid_urls)
+        run_analysis_pipeline(valid_urls, force_reanalysis)
 
 
 def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
@@ -356,7 +363,8 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
             # --- Analysis for Homepage ---
             st.write(f"- Analyzing homepage: {business_url}")
             try:
-                response = requests.get(business_url, timeout=15) # Fetch homepage HTML
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+                response = requests.get(business_url, timeout=15, headers=headers) # Fetch homepage HTML
                 response.raise_for_status()
                 homepage_html = response.text
                 
@@ -392,7 +400,8 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
                 for link_url in links_to_analyze:
                     st.write(f"  - Analyzing navigation link: {link_url}")
                     try:
-                        link_response = requests.get(link_url, timeout=15)
+                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+                        link_response = requests.get(link_url, timeout=15, headers=headers)
                         link_response.raise_for_status()
                         link_html_content = link_response.text
 

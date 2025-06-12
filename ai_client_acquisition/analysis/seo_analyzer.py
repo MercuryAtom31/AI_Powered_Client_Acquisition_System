@@ -54,7 +54,8 @@ class SEOAnalyzer:
         Analyze SEO elements of a given URL.
         """
         try:
-            response = requests.get(url, timeout=10)
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+            response = requests.get(url, timeout=10, headers=headers)
             response.raise_for_status()
             return self.analyze_html(response.text, url)
         except Exception as e:
