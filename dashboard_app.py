@@ -145,22 +145,20 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
     for i, url in enumerate(urls_to_process_in_this_run):
         try:
             # Check if this URL (from direct input) already exists in analysis_results
-            # This is a simplified check; ideally, you'd handle updates more granularly
+            # If force_reanalysis is true, always proceed with analysis (new entry)
+            # If force_reanalysis is false, skip if an existing analysis is found
             conn = sqlite3.connect('client_acquisition.db')
             cursor = conn.cursor()
-            if force_reanalysis:
-                # If force_reanalysis is true, delete existing analysis for this URL
-                cursor.execute('DELETE FROM analysis_results WHERE url = ?', (url,))
-                st.info(f"Forcing re-analysis for: {url}. Deleting old data.")
             
-            cursor.execute('SELECT id FROM analysis_results WHERE url = ?', (url,))
-            existing_analysis = cursor.fetchone()
+            if not force_reanalysis:
+                cursor.execute('SELECT id FROM analysis_results WHERE url = ?', (url,))
+                existing_analysis = cursor.fetchone()
+                if existing_analysis:
+                    conn.close()
+                    st.info(f"Skipping already analyzed URL (from direct input): {url}")
+                    progress_bar.progress((i + 1) / len(urls_to_process_in_this_run))
+                    continue # Skip if already analyzed and not forcing reanalysis
             conn.close()
-            
-            if existing_analysis and not force_reanalysis:
-                st.info(f"Skipping already analyzed URL (from direct input): {url}")
-                progress_bar.progress((i + 1) / len(urls_to_process_in_this_run))
-                continue # Skip if already analyzed
 
             # --- Integrated Analysis Pipeline ---
             st.write(f"Analyse de : {url}")
