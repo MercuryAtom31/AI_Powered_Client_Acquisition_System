@@ -25,6 +25,69 @@ logger = logging.getLogger(__name__)
 # Set Streamlit page config first
 st.set_page_config(page_title="Tableau de bord d'acquisition de clients par IA", layout="wide")
 
+# --- BEAUTIFUL STICKY NAVBAR AT THE TOP (with offset for Streamlit banner) ---
+st.markdown(
+    """
+    <style>
+        .main-navbar {
+            position: fixed;
+            top: 48px; /* Offset for Streamlit banner */
+            left: 0;
+            width: 100vw;
+            background: linear-gradient(90deg, #232946 0%, #1a1e27 100%);
+            color: #fff;
+            z-index: 9999;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0.7rem 0 0.7rem 0;
+            border-bottom: 2px solid #f4d35e;
+            font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+        }
+        .main-navbar a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.15rem;
+            margin: 0 2.5rem;
+            padding: 0.6rem 1.5rem;
+            border-radius: 8px;
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .main-navbar a:hover, .main-navbar a.active {
+            background: #f4d35e;
+            color: #232946;
+            box-shadow: 0 2px 8px rgba(244,211,94,0.15);
+        }
+        .stApp {
+            padding-top: 128px !important; /* 48px banner + 80px navbar */
+        }
+    </style>
+    <nav class="main-navbar">
+        <a href="#analyse-durl">Analyse d'URL</a>
+        <a href="#business-search">Business Search by City and Industry</a>
+    </nav>
+    <script>
+    // Offset scroll for anchor links (navbar height + banner)
+    document.addEventListener('DOMContentLoaded', function() {
+        function offsetAnchor() {
+            if(location.hash.length !== 0) {
+                window.scrollTo({
+                    top: window.scrollY - 128,
+                    behavior: 'smooth'
+                });
+            }
+        }
+        window.addEventListener('hashchange', offsetAnchor);
+        window.setTimeout(offsetAnchor, 1);
+    });
+    </script>
+    """,
+    unsafe_allow_html=True
+)
+
 def _extract_navigation_links(html: str, base_url: str) -> List[str]:
     """
     Extracts relevant internal navigation links from HTML.
@@ -111,41 +174,6 @@ init_db()
 
 # st.set_page_config(page_title="Tableau de bord d'acquisition de clients par IA", layout="wide") # Moved to top
 st.title("Tableau de bord d'acquisition de clients par IA")
-
-# Sticky Navigation Bar
-st.markdown(
-    """
-    <style>
-        .fixed-header {
-            position: sticky;
-            top: 0;
-            background-color: #0e1117; /* Adjust to match your app's background */
-            padding: 10px 0;
-            z-index: 100;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            display: flex;
-            justify-content: space-around;
-            width: 100%;
-            margin-bottom: 20px; /* Space below navbar */
-        }
-        .fixed-header a {
-            color: white; /* Link color */
-            text-decoration: none;
-            font-weight: bold;
-            padding: 5px 15px;
-            border-radius: 5px;
-        }
-        .fixed-header a:hover {
-            background-color: #1a1e27; /* Darker on hover */
-        }
-    </style>
-    <div class="fixed-header">
-        <a href="#analyse-durl">Analyse d'URL</a>
-        <a href="#business-search">Business Search by City and Industry</a>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
 
 # Initialize clients and analyzers
 ollama_client = OllamaClient()
@@ -279,7 +307,7 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
 
 
 # URL Input Section
-st.markdown("<h1 id=\"analyse-durl\">Analyse d'URL</h1>", unsafe_allow_html=True)
+st.markdown('<h1 id="analyse-durl">Analyse d\'URL</h1>', unsafe_allow_html=True)
 urls_input = st.text_area(
     "Entrez les URLs à analyser (une par ligne)",
     height=150,
@@ -754,7 +782,7 @@ if organized_data:
 
 
 # Business Search Section (New)
-st.markdown("<h1 id=\"business-search\">Business Search by City and Industry</h1>", unsafe_allow_html=True)
+st.markdown('<h1 id="business-search">Business Search by City and Industry</h1>', unsafe_allow_html=True)
 st.write("Search for businesses based on location and category. This uses the Google Places API.")
 # st.warning("A Google Places API key is required for this feature. Add `GOOGLE_PLACES_API_KEY=\'YOUR_API_KEY\'` to your `.env` file.") # Commented out
 
