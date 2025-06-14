@@ -533,8 +533,10 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool):
 
     # HubSpot Integration Button (adjust key for uniqueness)
     if hubspot_available:
-        # Use a unique key based on the URL being displayed
-        if st.button(f"Pousser vers HubSpot ({analysis_result.get('url', 'N/A')})", key=f"hubspot_{analysis_result.get('url')}"):
+        # Use a unique key based on the URL and the analysis ID
+        analysis_id = analysis_result.get('id', 'N/A') 
+        analysis_timestamp = analysis_result.get('timestamp', 'N/A')
+        if st.button(f"Pousser vers HubSpot ({analysis_result.get('url', 'N/A')})", key=f"hubspot_{analysis_result.get('url')}_{analysis_id}_{analysis_timestamp}"):
             with st.spinner("Envoi vers HubSpot..."):
                 # Prepare data for HubSpot (adjust field names as needed)
                 hubspot_contact_info = {
@@ -571,10 +573,10 @@ def load_data():
         
         # Fetch analysis results from direct URL input (where business_id is NULL)
         cursor.execute('''
-            SELECT NULL, ar.url, NULL, ar.url, ar.analysis_data
+            SELECT id, url, analysis_data, timestamp
             FROM analysis_results ar
             WHERE ar.business_id IS NULL
-            ORDER BY ar.url
+            ORDER BY ar.url, ar.timestamp DESC
         ''')
         direct_url_results = cursor.fetchall()
         
@@ -588,10 +590,12 @@ def load_data():
             organized_results[f"Search: {search_query}"][f"Business: {name} ({website})"][url].append(json.loads(analysis_data_json))
             
         # Add direct URL results
-        for _, url, _, _, analysis_data_json in direct_url_results:
-             # Use a distinct key for direct URLs, e.g., based on the URL itself
-             # Simpler structure for direct URLs: { url: analysis_dict }
-             organized_results["Direct URLs"][url] = json.loads(analysis_data_json)
+        # Ensure that organized_results["Direct URLs"] stores a list of analyses per URL
+        for analysis_id, url, analysis_data_json, timestamp in direct_url_results:
+             analysis_dict = json.loads(analysis_data_json)
+             analysis_dict['id'] = analysis_id # Add the database ID
+             analysis_dict['timestamp'] = timestamp # Add the timestamp
+             organized_results["Direct URLs"][url].append(analysis_dict)
         
         return organized_results
         
@@ -610,7 +614,18 @@ if organized_data:
     col1, col2, col3, col4 = st.columns(4)
     
     # Simplified summary for now - count total analyzed URLs and businesses
-    total_analyzed_urls = sum(len(analysis_list) for businesses_or_urls in organized_data.values() for pages in businesses_or_urls.values() for analysis_list in pages.values())
+    total_analyzed_urls = 0
+    for group_name, businesses_or_urls_dict in organized_data.items():
+        if group_name == "Direct URLs":
+            # For direct URLs, businesses_or_urls_dict.values() directly yields lists of analyses
+            for analysis_list_for_url in businesses_or_urls_dict.values():
+                total_analyzed_urls += len(analysis_list_for_url)
+        else: # This handles "Search: " groups
+            # businesses_or_urls_dict.values() yields dictionaries (e.g., {url: [analysis_list]}) 
+            for business_pages_dict in businesses_or_urls_dict.values():
+                for analysis_list_for_page in business_pages_dict.values():
+                    total_analyzed_urls += len(analysis_list_for_page)
+
     total_businesses = sum(len(businesses) for key, businesses in organized_data.items() if key.startswith("Search:"))
     total_direct_urls = len(organized_data.get("Direct URLs", {}))
     
@@ -636,9 +651,12 @@ if organized_data:
             else:
                 # This is a direct URL input group
                 url = business_or_url # business_or_url is the URL string directly
-                analysis_result = pages # pages is the analysis dictionary directly
-                with st.expander(url):
-                    _display_analysis_result(analysis_result, hubspot_available)
+                analyses = pages # pages is now a list of analysis dictionaries
+                with st.expander(f"{url} ({len(analyses)} analyses)"):
+                    # Iterate through all analyses for this URL
+                    for idx, analysis_result in enumerate(analyses):
+                        st.markdown(f"**Analyse {idx + 1} (Date: {analysis_result.get('timestamp', 'N/A')})**")
+                        _display_analysis_result(analysis_result, hubspot_available)
 
     # Download option
     if organized_data:
@@ -669,24 +687,25 @@ if organized_data:
                 else:  # Direct URL group
                     # For direct URLs, business_or_url is the URL itself
                     url = business_or_url
-                    analysis_result = pages # pages is the analysis dictionary directly for direct URLs
+                    analyses = pages # pages is now a list of analysis dictionaries
                     
-                    # Extract contact info, SEO, and AI analysis for CSV
-                    contact_info = analysis_result.get('contact_info', {})
-                    seo = analysis_result.get('seo_analysis', {})
-                    ai_analysis = analysis_result.get('ai_analysis', {})
-                    
-                    csv_rows.append({
-                        "Group": group_name,
-                        "Business": "N/A", # No business info for direct URLs
-                        "URL": url,
-                        "SEO Score": seo.get("overall_score", "N/A"),
-                        "Critical Issues": ", ".join(seo.get("critical_issues", [])),
-                        "Emails": ", ".join(contact_info.get('emails', [])),
-                        "Phones": ", ".join(contact_info.get('phones', [])),
-                        "AI Analysis": ai_analysis.get('response', '') if isinstance(ai_analysis, dict) else '',
-                        # Add other fields as needed
-                    })
+                    for analysis_result in analyses:
+                        # Extract contact info, SEO, and AI analysis for CSV
+                        contact_info = analysis_result.get('contact_info', {})
+                        seo = analysis_result.get('seo_analysis', {})
+                        ai_analysis = analysis_result.get('ai_analysis', {})
+                        
+                        csv_rows.append({
+                            "Group": group_name,
+                            "Business": "N/A", # No business info for direct URLs
+                            "URL": url,
+                            "SEO Score": seo.get("overall_score", "N/A"),
+                            "Critical Issues": ", ".join(seo.get("critical_issues", [])),
+                            "Emails": ", ".join(contact_info.get('emails', [])),
+                            "Phones": ", ".join(contact_info.get('phones', [])),
+                            "AI Analysis": ai_analysis.get('response', '') if isinstance(ai_analysis, dict) else '',
+                            # Add other fields as needed
+                        })
 
         # Only show the download button if we have data
         if csv_rows:
