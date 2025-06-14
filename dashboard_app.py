@@ -102,7 +102,7 @@ def init_db():
         
         conn.commit()
         conn.close()
-        st.success("Database initialized with business search schema.")
+        # st.success("Database initialized with business search schema.") # Commented out for cleaner UI
     except Exception as e:
         st.error(f"Erreur lors de l'initialisation de la base de données : {e}")
 
@@ -111,6 +111,41 @@ init_db()
 
 # st.set_page_config(page_title="Tableau de bord d'acquisition de clients par IA", layout="wide") # Moved to top
 st.title("Tableau de bord d'acquisition de clients par IA")
+
+# Sticky Navigation Bar
+st.markdown(
+    """
+    <style>
+        .fixed-header {
+            position: sticky;
+            top: 0;
+            background-color: #0e1117; /* Adjust to match your app's background */
+            padding: 10px 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-bottom: 20px; /* Space below navbar */
+        }
+        .fixed-header a {
+            color: white; /* Link color */
+            text-decoration: none;
+            font-weight: bold;
+            padding: 5px 15px;
+            border-radius: 5px;
+        }
+        .fixed-header a:hover {
+            background-color: #1a1e27; /* Darker on hover */
+        }
+    </style>
+    <div class="fixed-header">
+        <a href="#analyse-durl">Analyse d'URL</a>
+        <a href="#business-search">Business Search by City and Industry</a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # Initialize clients and analyzers
 ollama_client = OllamaClient()
@@ -244,7 +279,7 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
 
 
 # URL Input Section
-st.header("Analyse d'URL")
+st.markdown("<h1 id=\"analyse-durl\">Analyse d'URL</h1>", unsafe_allow_html=True)
 urls_input = st.text_area(
     "Entrez les URLs à analyser (une par ligne)",
     height=150,
@@ -719,9 +754,9 @@ if organized_data:
 
 
 # Business Search Section (New)
-st.header("Business Search by City and Industry")
+st.markdown("<h1 id=\"business-search\">Business Search by City and Industry</h1>", unsafe_allow_html=True)
 st.write("Search for businesses based on location and category. This uses the Google Places API.")
-st.warning("A Google Places API key is required for this feature. Add `GOOGLE_PLACES_API_KEY='YOUR_API_KEY'` to your `.env` file.")
+# st.warning("A Google Places API key is required for this feature. Add `GOOGLE_PLACES_API_KEY=\'YOUR_API_KEY\'` to your `.env` file.") # Commented out
 
 city = st.text_input("City", help="Enter the city name (e.g., London)")
 industry = st.text_input("Industry / Business Type", help="Enter the type of business (e.g., digital marketing agency)")
