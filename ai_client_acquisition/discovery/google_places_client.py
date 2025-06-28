@@ -3,6 +3,7 @@ import requests
 import logging
 from dotenv import load_dotenv
 from typing import Dict, List, Optional
+from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
 
@@ -95,31 +96,29 @@ class GooglePlacesClient:
             logger.error(f"Error calling Google Places Details API: {str(e)}")
             return None
 
+
     def _get_location_coords(self, location: str) -> Optional[Dict]:
-        """
-        Helper to get coordinates for a location using Geocoding API.
-        """
         if not self.api_key:
             return None
-            
-        endpoint = "geocode/json"
+
+        # FIX: Use the Geocoding API base URL
+        geocode_base_url = "https://maps.googleapis.com/maps/api/geocode/json"
         params = {
             'key': self.api_key,
             'address': location
         }
-        
+
         try:
-            response = requests.get(urljoin(self.base_url, endpoint), params=params)
-            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            response = requests.get(geocode_base_url, params=params)
+            response.raise_for_status()
             results = response.json()
-            
+
             if results.get('status') == 'OK' and results.get('results'):
-                # Return the first result's location
                 return results['results'][0]['geometry']['location']
             else:
                 logger.error(f"Geocoding API error for {location}: {results.get('status')}")
                 return None
-                
+
         except requests.exceptions.RequestException as e:
             logger.error(f"Error calling Geocoding API: {str(e)}")
-            return None 
+            return None

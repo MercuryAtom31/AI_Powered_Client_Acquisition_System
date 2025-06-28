@@ -5,24 +5,22 @@ from collections import defaultdict, Counter
 from urllib.parse import urlparse, urljoin
 import numpy as np
 import sqlite3
-import requests # Added requests for direct scraping
-from bs4 import BeautifulSoup # Added BeautifulSoup for parsing HTML
+import requests
+from bs4 import BeautifulSoup
 from ollama_client import OllamaClient
 from hubspot_client import HubSpotClient
 import time
-from ai_client_acquisition.analysis.seo_analyzer import SEOAnalyzer # Import your modules
+from ai_client_acquisition.analysis.seo_analyzer import SEOAnalyzer
 from ai_client_acquisition.extraction.contact_extractor import ContactExtractor
-from ai_client_acquisition.discovery.google_places_client import GooglePlacesClient # Import Google Places Client
-from typing import List, Dict, Optional # Import necessary types
-from datetime import datetime # Import datetime
-import logging # Import logging
+from ai_client_acquisition.discovery.google_places_client import GooglePlacesClient
+from typing import List, Dict, Optional
+from datetime import datetime
+import logging
 
-# from ai_client_acquisition.discovery.crawler import WebsiteCrawler, run_crawler # Keep imports commented for now, as full crawler integration is complex in Streamlit
-
-# Configure logging (move to top if needed)
+# Configure logging
 logger = logging.getLogger(__name__)
 
-# Set Streamlit page config first
+# Set Streamlit page config
 st.set_page_config(
     page_title="🧠 AI SEO Analyzer & Business Finder", 
     layout="wide",
@@ -71,13 +69,22 @@ st.markdown(
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            cursor: pointer;
         }
         
-        .nav-tab:hover, .nav-tab.active {
+        .nav-tab:hover {
             background: rgba(255,255,255,0.15);
             color: #fff;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .nav-tab.active {
+            background: #fff;
+            color: #764ba2 !important;
+            box-shadow: 0 4px 12px rgba(118,75,162,0.15);
+            font-weight: 700;
+            text-shadow: 0 1px 4px rgba(118,75,162,0.08);
         }
         
         /* Card Styles */
@@ -167,48 +174,6 @@ st.markdown(
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
-        /* Progress Bar */
-        .progress-container {
-            background: #e2e8f0;
-            border-radius: 10px;
-            height: 8px;
-            margin: 1rem 0;
-            overflow: hidden;
-        }
-        
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-            transition: width 0.3s ease;
-        }
-        
-        /* Toast Notifications */
-        .toast {
-            position: fixed;
-            top: 100px;
-            right: 20px;
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 1rem;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-        }
-        
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .nav-tab { margin: 0 0.5rem; padding: 0.5rem 1rem; font-size: 0.875rem; }
-            .metric-card { padding: 1rem; }
-            .analysis-card { padding: 1rem; }
-        }
-        
         /* Streamlit Overrides */
         .stApp {
             padding-top: 120px !important;
@@ -223,33 +188,57 @@ st.markdown(
         #MainMenu { visibility: hidden; }
         footer { visibility: hidden; }
         header { visibility: hidden; }
+        
+        .issue-item.issue-warning {
+            border-left: 4px solid #f59e0b;
+            background: #fffbe6;
+            color: #b45309;
+            font-weight: 500;
+        }
     </style>
     
     <nav class="main-navbar">
-        <a href="#url-analysis" class="nav-tab active">
-            🧠 AI SEO Analyzer
-        </a>
-        <a href="#business-search" class="nav-tab">
-            🌍 Business Finder
-        </a>
+        <a href="#url-analysis" class="nav-tab" id="nav-seo">🧠 AI SEO Analyzer</a>
+        <a href="#business-search" class="nav-tab" id="nav-biz">🌍 Business Finder</a>
     </nav>
     
     <script>
-        // Smooth scrolling for navigation
+        // Navbar active tab on scroll
         document.addEventListener('DOMContentLoaded', function() {
             const navTabs = document.querySelectorAll('.nav-tab');
+            const sections = [
+                {id: 'url-analysis', nav: document.getElementById('nav-seo')},
+                {id: 'business-search', nav: document.getElementById('nav-biz')}
+            ];
+            function updateActiveTab() {
+                let scrollPos = window.scrollY || window.pageYOffset;
+                let found = false;
+                for (let i = sections.length - 1; i >= 0; i--) {
+                    const section = document.getElementById(sections[i].id);
+                    if (section && section.offsetTop - 140 <= scrollPos) {
+                        navTabs.forEach(t => t.classList.remove('active'));
+                        sections[i].nav.classList.add('active');
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    navTabs.forEach(t => t.classList.remove('active'));
+                }
+            }
+            window.addEventListener('scroll', updateActiveTab);
+            updateActiveTab();
             navTabs.forEach(tab => {
                 tab.addEventListener('click', function(e) {
                     e.preventDefault();
                     const targetId = this.getAttribute('href').substring(1);
                     const targetElement = document.getElementById(targetId);
                     if (targetElement) {
-                        targetElement.scrollIntoView({ behavior: 'smooth' });
+                        window.scrollTo({
+                            top: targetElement.offsetTop - 120,
+                            behavior: 'smooth'
+                        });
                     }
-                    
-                    // Update active tab
-                    navTabs.forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
                 });
             });
         });
@@ -259,32 +248,26 @@ st.markdown(
 )
 
 def _extract_navigation_links(html: str, base_url: str) -> List[str]:
-    """
-    Extracts relevant internal navigation links from HTML.
-    """
+    """Extracts relevant internal navigation links from HTML."""
     try:
         soup = BeautifulSoup(html, 'html.parser')
         base_domain = urlparse(base_url).netloc
         internal_links = set()
         
-        # Find common navigation elements and links within them
         nav_tags = soup.find_all(['nav', 'header', 'footer'])
         
         for tag in nav_tags:
             for link in tag.find_all('a', href=True):
                 href = link['href']
-                # Ignore anchor links, mailto, tel, etc.
                 if href.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
                     continue
                 
                 full_url = urljoin(base_url, href)
                 parsed_full_url = urlparse(full_url)
                 
-                # Only include internal links and avoid file paths or simple / links (unless it's the base)
                 if parsed_full_url.netloc == base_domain and parsed_full_url.scheme in ['http', 'https']:
-                     # Basic check to avoid very short or potentially irrelevant links
                     if len(parsed_full_url.path) > 1 or parsed_full_url.path == '/':
-                         internal_links.add(full_url)
+                        internal_links.add(full_url)
         
         return list(internal_links)
         
@@ -293,9 +276,7 @@ def _extract_navigation_links(html: str, base_url: str) -> List[str]:
         return []
 
 def init_db():
-    """Initialize the SQLite database and create the table if it doesn't exist.
-    This version includes tables for business search results.
-    """
+    """Initialize the SQLite database and create the table if it doesn't exist."""
     try:
         conn = sqlite3.connect('client_acquisition.db')
         cursor = conn.cursor()
@@ -326,7 +307,7 @@ def init_db():
         conn.commit()
         conn.close()
     except Exception as e:
-        st.error(f"Erreur lors de l'initialisation de la base de données : {e}")
+        st.error(f"Database initialization error: {e}")
 
 # Initialize the database
 init_db()
@@ -356,7 +337,7 @@ try:
     hubspot_client = HubSpotClient()
     hubspot_available = True
 except Exception as e:
-    st.warning("L'intégration HubSpot n'est pas disponible. Veuillez vérifier votre clé API dans le fichier .env.")
+    st.warning("HubSpot integration is not available. Please check your API key in the .env file.")
     hubspot_available = False
 
 def get_seo_grade(score):
@@ -373,10 +354,7 @@ def get_seo_grade(score):
         return "D", "score-poor"
 
 def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
-    """
-    Runs the full analysis pipeline for a list of URLs and stores results.
-    This is for direct URL input.
-    """
+    """Runs the full analysis pipeline for a list of URLs and stores results."""
     if not urls:
         st.warning("No valid URLs provided for analysis.")
         return
@@ -455,9 +433,7 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
         conn.close()
 
 def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
-    """
-    Runs business search and analysis pipeline.
-    """
+    """Runs business search and analysis pipeline."""
     try:
         # Search for businesses
         businesses = google_places_client.search_businesses(city, industry, batch_size)
@@ -531,14 +507,13 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
     except Exception as e:
         st.error(f"Error during business search analysis: {str(e)}")
 
-def _display_analysis_result(analysis_result: Dict, hubspot_available: bool):
-    """
-    Display a single analysis result with modern card design.
-    """
+def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, unique_id: str = ""):
+    """Display a single analysis result with modern card design."""
     url = analysis_result.get('url', 'N/A')
     seo = analysis_result.get('seo_analysis', {})
     contact_info = analysis_result.get('contact_info', {})
     ai_analysis = analysis_result.get('ai_analysis', {})
+    key_suffix = f"{unique_id}_{url}"
     
     # Get SEO score and grade
     seo_score = seo.get('overall_score', 0)
@@ -559,64 +534,58 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool):
         unsafe_allow_html=True
     )
     
-    # SEO Analysis Section
+    # SEO Analysis Section (no expander)
     if seo:
-        with st.expander("📊 SEO Analysis Details", expanded=False):
-            checks_results = seo.get('checks', {})
-            if checks_results:
-                for check_name, check_result in checks_results.items():
-                    if 'error' not in check_result:
-                        # Create issue display
-                        issues = []
-                        for key, value in check_result.items():
-                            if key != 'recommendations':
-                                if isinstance(value, bool) and not value:
-                                    issues.append(f"⚠️ {key.replace('_', ' ').title()}")
-                                elif isinstance(value, list) and not value:
-                                    issues.append(f"⚠️ Missing {key.replace('_', ' ').title()}")
-                        
-                        if issues:
-                            for issue in issues:
-                                st.markdown(f'<div class="issue-item issue-warning">{issue}</div>', unsafe_allow_html=True)
-            
-            # Critical issues
-            critical_issues = seo.get('critical_issues', [])
-            if critical_issues:
-                st.markdown("**🔴 Critical Issues:**")
-                for issue in critical_issues:
-                    st.markdown(f'<div class="issue-item issue-critical">🔴 {issue}</div>', unsafe_allow_html=True)
+        st.markdown("#### 📊 SEO Analysis Details")
+        checks_results = seo.get('checks', {})
+        if checks_results:
+            for check_name, check_result in checks_results.items():
+                if 'error' not in check_result:
+                    # Create issue display
+                    issues = []
+                    for key, value in check_result.items():
+                        if key != 'recommendations':
+                            if isinstance(value, bool) and not value:
+                                issues.append(f"⚠️ {key.replace('_', ' ').title()}")
+                            elif isinstance(value, list) and not value:
+                                issues.append(f"⚠️ Missing {key.replace('_', ' ').title()}")
+                    if issues:
+                        for issue in issues:
+                            st.markdown(f'<div class="issue-item issue-warning">{issue}</div>', unsafe_allow_html=True)
+        # Critical issues
+        critical_issues = seo.get('critical_issues', [])
+        if critical_issues:
+            st.markdown("**🔴 Critical Issues:**")
+            for issue in critical_issues:
+                st.markdown(f'<div class="issue-item issue-critical">🔴 {issue}</div>', unsafe_allow_html=True)
     
-    # Contact Information
+    # Contact Information (no expander)
     if contact_info:
-        with st.expander("📞 Contact Information", expanded=False):
-            emails = contact_info.get('emails', [])
-            phones = contact_info.get('phones', [])
-            
-            if emails:
-                st.markdown(f"**📧 Emails:** {', '.join(emails)}")
-            if phones:
-                st.markdown(f"**📱 Phones:** {', '.join(phones)}")
+        st.markdown("#### 📞 Contact Information")
+        emails = contact_info.get('emails', [])
+        phones = contact_info.get('phones', [])
+        if emails:
+            st.markdown(f"**📧 Emails:** {', '.join(emails)}")
+        if phones:
+            st.markdown(f"**📱 Phones:** {', '.join(phones)}")
     
-    # AI Analysis
+    # AI Analysis (no expander)
     if isinstance(ai_analysis, dict) and "response" in ai_analysis:
-        with st.expander("🧠 AI Analysis", expanded=False):
-            st.write(ai_analysis['response'])
+        st.markdown("#### 🧠 AI Analysis")
+        st.write(ai_analysis['response'])
     
     # Action Buttons
     col1, col2, col3 = st.columns(3)
-    
     with col1:
-        if st.button("🔄 Re-analyze", key=f"reanalyze_{url}"):
+        if st.button("🔄 Re-analyze", key=f"reanalyze_{key_suffix}"):
             run_analysis_pipeline([url], True)
             st.rerun()
-    
     with col2:
-        if st.button("📊 View Details", key=f"details_{url}"):
+        if st.button("📊 View Details", key=f"details_{key_suffix}"):
             st.json(analysis_result)
-    
     with col3:
         if hubspot_available:
-            if st.button("📤 Push to HubSpot", key=f"hubspot_{url}"):
+            if st.button("📤 Push to HubSpot", key=f"hubspot_{key_suffix}"):
                 with st.spinner("Sending to HubSpot..."):
                     hubspot_contact_info = {
                         "email": contact_info.get('emails', [''])[0],
@@ -624,7 +593,6 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool):
                         "seo_analysis": json.dumps(seo) if seo else '',
                         "ai_analysis": json.dumps(ai_analysis) if isinstance(ai_analysis, dict) else '',
                     }
-                    
                     contact_id = hubspot_client.create_or_update_contact(hubspot_contact_info)
                     if contact_id:
                         st.success(f"✅ Successfully sent to HubSpot!")
@@ -667,9 +635,7 @@ with col2:
 
 # Load and display results
 def load_data():
-    """
-    Loads all analysis results, organized by business or direct URL.
-    """
+    """Loads all analysis results, organized by business or direct URL."""
     try:
         conn = sqlite3.connect('client_acquisition.db')
         cursor = conn.cursor()
@@ -711,7 +677,7 @@ def load_data():
         return organized_results
         
     except Exception as e:
-        st.error(f"Erreur lors du chargement des données : {e}")
+        st.error(f"Error loading data: {e}")
         return {}
 
 # Display Results Section
@@ -822,15 +788,17 @@ if organized_data:
                 with st.expander(business_or_url):
                      for page_url, analyses in pages.items():
                           st.write(f"**Page:** {page_url}")
-                          for analysis_result in analyses:
-                               _display_analysis_result(analysis_result, hubspot_available)
+                          for idx, analysis_result in enumerate(analyses):
+                               unique_id = str(analysis_result.get('id', idx))
+                               _display_analysis_result(analysis_result, hubspot_available, unique_id=unique_id)
             else:
                 url = business_or_url
                 analyses = pages
                 with st.expander(f"{url} ({len(analyses)} analyses)"):
                     for idx, analysis_result in enumerate(analyses):
                         st.markdown(f"**Analysis {idx + 1} (Date: {analysis_result.get('timestamp', 'N/A')})**")
-                        _display_analysis_result(analysis_result, hubspot_available)
+                        unique_id = str(analysis_result.get('id', idx))
+                        _display_analysis_result(analysis_result, hubspot_available, unique_id=unique_id)
 
     # Download option
     if organized_data:
