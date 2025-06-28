@@ -58,10 +58,12 @@ st.markdown(
         }
         
         .nav-tab {
-            color: rgba(255,255,255,0.8);
+            color: #fff !important;
+            text-shadow: 0 2px 8px rgba(60,30,90,0.18), 0 1px 0 #fff3;
+            font-weight: 700;
+            font-size: 1.18rem;
+            letter-spacing: 0.5px;
             text-decoration: none;
-            font-weight: 500;
-            font-size: 1rem;
             margin: 0 1.5rem;
             padding: 0.75rem 1.5rem;
             border-radius: 12px;
@@ -83,8 +85,8 @@ st.markdown(
             background: #fff;
             color: #764ba2 !important;
             box-shadow: 0 4px 12px rgba(118,75,162,0.15);
-            font-weight: 700;
-            text-shadow: 0 1px 4px rgba(118,75,162,0.08);
+            font-weight: 800;
+            text-shadow: none;
         }
         
         /* Card Styles */
