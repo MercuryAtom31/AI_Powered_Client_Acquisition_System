@@ -393,10 +393,10 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
                 seo_result = seo_analyzer.analyze_url(url)
                 
                 # Extract contact information
-                contact_result = contact_extractor.extract_contact_info(url)
+                contact_result = contact_extractor.extract_from_url(url)
                 
                 # Run AI analysis
-                ai_result = ollama_client.analyze_website(url, seo_result, contact_result)
+                ai_result = ollama_client.generate_seo_analysis(url, seo_result)
                 
                 # Combine results
                 analysis_result = {
@@ -473,10 +473,10 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
                     seo_result = seo_analyzer.analyze_url(business['website'])
                     
                     # Extract contact information
-                    contact_result = contact_extractor.extract_contact_info(business['website'])
+                    contact_result = contact_extractor.extract_from_url(business['website'])
                     
                     # Run AI analysis
-                    ai_result = ollama_client.analyze_website(business['website'], seo_result, contact_result)
+                    ai_result = ollama_client.generate_seo_analysis(business['website'], seo_result)
                     
                     # Combine results
                     analysis_result = {
@@ -583,7 +583,12 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
             run_analysis_pipeline([url], True)
             st.rerun()
     with col2:
+        details_key = f"details_open_{key_suffix}"
+        if details_key not in st.session_state:
+            st.session_state[details_key] = False
         if st.button("📊 View Details", key=f"details_{key_suffix}"):
+            st.session_state[details_key] = not st.session_state[details_key]
+        if st.session_state[details_key]:
             st.json(analysis_result)
     with col3:
         if hubspot_available:
