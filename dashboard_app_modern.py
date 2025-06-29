@@ -42,12 +42,12 @@ st.markdown(
         /* Modern Navbar */
         .main-navbar {
             position: fixed;
-            top: 48px;
+            top: 0;
             left: 0;
             width: 100vw;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
-            z-index: 9999;
+            z-index: 10010;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
             display: flex;
             justify-content: center;
@@ -178,7 +178,7 @@ st.markdown(
         
         /* Streamlit Overrides */
         .stApp {
-            padding-top: 120px !important;
+            padding-top: 110px !important;
         }
         
         .main .block-container {
