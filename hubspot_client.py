@@ -88,27 +88,38 @@ class HubSpotClient:
             print(f"Error creating deal in HubSpot: {e}")
             return None
 
+
     def create_analysis_note(self, contact_id: str, analysis: Dict) -> Optional[str]:
         """
         Attach a Note to the given contact containing the full analysis JSON,
-        via the CRM Objects Notes API.
+        wrapped in an HTML <pre> so HubSpot preserves formatting.
         """
         try:
-            # 1) Build the note payload
-            body = json.dumps(analysis, indent=2)
+            # 1) Dump JSON
+            raw_json = json.dumps(analysis, indent=2)
+
+            # 2) Wrap in a <pre> (and <code>) so the timeline renders a code block
+            body_html = (
+                "<pre style='white-space: pre-wrap; "
+                "font-family: monospace; font-size: 0.85rem;'>"
+                f"{raw_json}"
+                "</pre>"
+            )
+
+            # 3) Build note input
             note_input = NoteCreateInput(properties={
-                "hs_note_body": body,
+                "hs_note_body": body_html,
                 "hs_timestamp": str(int(time.time() * 1000))
             })
 
-            # 2) Create the Note object
+            # 4) Create the Note
             note_obj = self.client.crm.objects.basic_api.create(
                 object_type="notes",
                 simple_public_object_input_for_create=note_input
             )
             note_id = note_obj.id
 
-            # 3) Associate the Note to the Contact
+            # 5) Associate it to the contact
             self.client.crm.objects.associations_api.create(
                 object_type="notes",
                 object_id=note_id,
