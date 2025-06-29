@@ -438,7 +438,10 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
     """Runs business search and analysis pipeline."""
     try:
         # Search for businesses
-        businesses = google_places_client.search_businesses(city, industry, batch_size)
+        businesses = google_places_client.search_places(industry, city)
+        
+        if batch_size is not None:
+            businesses = businesses[:batch_size]
         
         if not businesses:
             st.warning("No businesses found for the given criteria.")
@@ -463,8 +466,11 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
                 VALUES (?, ?, ?, ?, ?)
             ''', (f"{city} {industry}", business['place_id'], business['name'], 
                   business.get('address', ''), business.get('website', '')))
-            
-            business_id = cursor.lastrowid
+
+            # Always fetch the business ID
+            cursor.execute('SELECT id FROM businesses WHERE place_id = ?', (business['place_id'],))
+            row = cursor.fetchone()
+            business_id = row[0] if row else None
             
             # If business has a website, analyze it
             if business.get('website'):
@@ -906,7 +912,6 @@ if st.button("🚀 Start Business Search", type="primary", use_container_width=T
         st.error("Please enter both City and Industry.")
     else:
         st.session_state['business_search_triggered'] = True
-        st.rerun()
 
 if st.session_state.get('business_search_triggered', False):
     st.session_state.pop('business_search_triggered')
@@ -921,7 +926,6 @@ if st.session_state.get('business_search_triggered', False):
 
 if st.session_state.get('business_search_complete', False):
     st.success("🎉 Business search and analysis complete! See results above.")
-    st.session_state['business_search_complete'] = False
 
 if st.session_state.get('last_search_city') and st.session_state.get('last_search_industry'):
     st.info(f"📊 Showing results for {st.session_state['last_search_industry']} in {st.session_state['last_search_city']}")
