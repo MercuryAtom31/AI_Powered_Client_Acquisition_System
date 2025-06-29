@@ -515,6 +515,102 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
     except Exception as e:
         st.error(f"Error during business search analysis: {str(e)}")
 
+# def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, unique_id: str = ""):
+#     """Display a single analysis result with modern card design."""
+#     url = analysis_result.get('url', 'N/A')
+#     seo = analysis_result.get('seo_analysis', {})
+#     contact_info = analysis_result.get('contact_info', {})
+#     ai_analysis = analysis_result.get('ai_analysis', {})
+#     key_suffix = f"{unique_id}_{url}"
+    
+#     # Get SEO score and grade
+#     seo_score = seo.get('overall_score', 0)
+#     grade, grade_class = get_seo_grade(seo_score)
+    
+#     # Create the analysis card
+#     st.markdown(
+#         f"""
+#         <div class="analysis-card">
+#             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+#                 <h3 style="margin: 0; color: #1e293b; font-size: 1.1rem;">🌐 {url}</h3>
+#                 <div class="score-badge {grade_class}">
+#                     {grade} ({seo_score}/100)
+#                 </div>
+#             </div>
+#         </div>
+#         """,
+#         unsafe_allow_html=True
+#     )
+    
+#     # SEO Analysis Section (no expander)
+#     if seo:
+#         st.markdown("#### 📊 SEO Analysis Details")
+#         checks_results = seo.get('checks', {})
+#         if checks_results:
+#             for check_name, check_result in checks_results.items():
+#                 if 'error' not in check_result:
+#                     # Create issue display
+#                     issues = []
+#                     for key, value in check_result.items():
+#                         if key != 'recommendations':
+#                             if isinstance(value, bool) and not value:
+#                                 issues.append(f"⚠️ {key.replace('_', ' ').title()}")
+#                             elif isinstance(value, list) and not value:
+#                                 issues.append(f"⚠️ Missing {key.replace('_', ' ').title()}")
+#                     if issues:
+#                         for issue in issues:
+#                             st.markdown(f'<div class="issue-item issue-warning">{issue}</div>', unsafe_allow_html=True)
+#         # Critical issues
+#         critical_issues = seo.get('critical_issues', [])
+#         if critical_issues:
+#             st.markdown("**🔴 Critical Issues:**")
+#             for issue in critical_issues:
+#                 st.markdown(f'<div class="issue-item issue-critical">🔴 {issue}</div>', unsafe_allow_html=True)
+    
+#     # Contact Information (no expander)
+#     if contact_info:
+#         st.markdown("#### 📞 Contact Information")
+#         emails = contact_info.get('emails', [])
+#         phones = contact_info.get('phones', [])
+#         if emails:
+#             st.markdown(f"**📧 Emails:** {', '.join(emails)}")
+#         if phones:
+#             st.markdown(f"**📱 Phones:** {', '.join(phones)}")
+    
+#     # AI Analysis (no expander)
+#     if isinstance(ai_analysis, dict) and "response" in ai_analysis:
+#         st.markdown("#### 🧠 AI Analysis")
+#         st.write(ai_analysis['response'])
+    
+#     # Action Buttons
+#     col1, col2, col3 = st.columns(3)
+#     with col1:
+#         if st.button("🔄 Re-analyze", key=f"reanalyze_{key_suffix}"):
+#             run_analysis_pipeline([url], True)
+#             st.rerun()
+#     with col2:
+#         details_key = f"details_open_{key_suffix}"
+#         if details_key not in st.session_state:
+#             st.session_state[details_key] = False
+#         if st.button("📊 View Details", key=f"details_{key_suffix}"):
+#             st.session_state[details_key] = not st.session_state[details_key]
+#         if st.session_state[details_key]:
+#             st.json(analysis_result)
+#     with col3:
+#         if hubspot_available:
+#             if st.button("📤 Push to HubSpot", key=f"hubspot_{key_suffix}"):
+#                 with st.spinner("Sending to HubSpot..."):
+#                     hubspot_contact_info = {
+#                         "email": contact_info.get('emails', [''])[0],
+#                         "website": url,
+#                         "seo_analysis": json.dumps(seo) if seo else '',
+#                         "ai_analysis": json.dumps(ai_analysis) if isinstance(ai_analysis, dict) else '',
+#                     }
+#                     contact_id = hubspot_client.create_or_update_contact(hubspot_contact_info)
+#                     if contact_id:
+#                         st.success(f"✅ Successfully sent to HubSpot!")
+#                     else:
+#                         st.error(f"❌ Failed to send to HubSpot")
 def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, unique_id: str = ""):
     """Display a single analysis result with modern card design."""
     url = analysis_result.get('url', 'N/A')
@@ -549,7 +645,6 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
         if checks_results:
             for check_name, check_result in checks_results.items():
                 if 'error' not in check_result:
-                    # Create issue display
                     issues = []
                     for key, value in check_result.items():
                         if key != 'recommendations':
@@ -557,10 +652,8 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
                                 issues.append(f"⚠️ {key.replace('_', ' ').title()}")
                             elif isinstance(value, list) and not value:
                                 issues.append(f"⚠️ Missing {key.replace('_', ' ').title()}")
-                    if issues:
-                        for issue in issues:
-                            st.markdown(f'<div class="issue-item issue-warning">{issue}</div>', unsafe_allow_html=True)
-        # Critical issues
+                    for issue in issues:
+                        st.markdown(f'<div class="issue-item issue-warning">{issue}</div>', unsafe_allow_html=True)
         critical_issues = seo.get('critical_issues', [])
         if critical_issues:
             st.markdown("**🔴 Critical Issues:**")
@@ -600,17 +693,23 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
         if hubspot_available:
             if st.button("📤 Push to HubSpot", key=f"hubspot_{key_suffix}"):
                 with st.spinner("Sending to HubSpot..."):
+                    # 1) Upsert the contact
                     hubspot_contact_info = {
-                        "email": contact_info.get('emails', [''])[0],
-                        "website": url,
-                        "seo_analysis": json.dumps(seo) if seo else '',
-                        "ai_analysis": json.dumps(ai_analysis) if isinstance(ai_analysis, dict) else '',
+                        "email":        contact_info.get('emails', [''])[0],
+                        "website":      url,
+                        "seo_analysis": json.dumps(seo) if seo else ''
                     }
                     contact_id = hubspot_client.create_or_update_contact(hubspot_contact_info)
                     if contact_id:
-                        st.success(f"✅ Successfully sent to HubSpot!")
+                        # 2) Attach full analysis as a Note on the contact
+                        note_id = hubspot_client.create_analysis_note(contact_id, analysis_result)
+                        if note_id:
+                            st.success("✅ Analysis pushed as a Note on the contact!")
+                        else:
+                            st.error("❌ Contact upserted, but failed to add Note.")
                     else:
-                        st.error(f"❌ Failed to send to HubSpot")
+                        st.error("❌ Failed to send to HubSpot")
+
 
 # URL Analysis Section
 st.markdown('<h2 id="url-analysis">🧠 AI SEO Analyzer</h2>', unsafe_allow_html=True)

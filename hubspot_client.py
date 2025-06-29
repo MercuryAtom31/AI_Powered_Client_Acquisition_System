@@ -1,82 +1,124 @@
 import os
+import time
+import json
 from typing import Dict, Optional
-from hubspot import HubSpot
 from dotenv import load_dotenv
+from hubspot import HubSpot
+
+from hubspot.crm.contacts import (
+    PublicObjectSearchRequest,
+    Filter,
+    FilterGroup,
+    SimplePublicObjectInput as ContactUpdate,              # for updates
+    SimplePublicObjectInputForCreate as ContactCreate       # for creates
+)
+from hubspot.crm.deals import SimplePublicObjectInputForCreate as DealCreate
+from hubspot.crm.objects import SimplePublicObjectInput as NoteCreateInput
 
 class HubSpotClient:
     def __init__(self):
         load_dotenv()
-        self.api_key = os.getenv("HUBSPOT_API_KEY")
-        if not self.api_key:
+        api_key = os.getenv("HUBSPOT_API_KEY")
+        if not api_key:
             raise ValueError("HUBSPOT_API_KEY not found in environment variables")
-        self.client = HubSpot(access_token=self.api_key)
+        self.client = HubSpot(access_token=api_key)
 
     def create_or_update_contact(self, contact_info: Dict) -> Optional[str]:
         """Create or update a contact in HubSpot."""
         try:
-            # Prepare contact properties
-            properties = {
-                "email": contact_info.get("email", ""),
-                "firstname": contact_info.get("first_name", ""),
-                "lastname": contact_info.get("last_name", ""),
-                "phone": contact_info.get("phone", ""),
-                "company": contact_info.get("company", ""),
-                "website": contact_info.get("website", ""),
+            props = {
+                "email":        contact_info.get("email", ""),
+                "firstname":    contact_info.get("first_name", ""),
+                "lastname":     contact_info.get("last_name", ""),
+                "phone":        contact_info.get("phone", ""),
+                "company":      contact_info.get("company", ""),
+                "website":      contact_info.get("website", ""),
                 "seo_analysis": contact_info.get("seo_analysis", ""),
-                "recommendations": contact_info.get("recommendations", "")
             }
 
-            # Check if contact exists
-            if contact_info.get("email"):
-                search_response = self.client.crm.contacts.search_api.do_search(
-                    query=contact_info["email"],
+            email = props["email"]
+            if email:
+                f = Filter(property_name="email", operator="EQ", value=email)
+                group = FilterGroup(filters=[f])
+                req = PublicObjectSearchRequest(
+                    filter_groups=[group],
                     properties=["email"]
                 )
-                
-                if search_response.total > 0:
-                    # Update existing contact
-                    contact_id = search_response.results[0].id
+                resp = self.client.crm.contacts.search_api.do_search(req)
+                if resp.total > 0:
+                    existing_id = resp.results[0].id
                     self.client.crm.contacts.basic_api.update(
-                        contact_id=contact_id,
-                        simple_public_object_input={"properties": properties}
+                        contact_id=existing_id,
+                        simple_public_object_input=ContactUpdate(properties=props)
                     )
-                    return contact_id
+                    return existing_id
 
-            # Create new contact
-            response = self.client.crm.contacts.basic_api.create(
-                simple_public_object_input={"properties": properties}
+            new_contact = self.client.crm.contacts.basic_api.create(
+                simple_public_object_input_for_create=ContactCreate(properties=props)
             )
-            return response.id
+            return new_contact.id
 
         except Exception as e:
-            print(f"Error in HubSpot integration: {str(e)}")
+            print(f"Error in HubSpot integration: {e}")
             return None
 
     def create_deal(self, contact_id: str, deal_info: Dict) -> Optional[str]:
-        """Create a deal in HubSpot associated with a contact."""
+        """Create a deal in HubSpot and associate it with a contact."""
         try:
-            properties = {
-                "dealname": deal_info.get("name", "SEO Analysis Opportunity"),
-                "pipeline": "default",
-                "dealstage": "appointmentscheduled",
-                "amount": deal_info.get("amount", "0"),
-                "description": deal_info.get("description", "")
+            props = {
+                "dealname":    deal_info.get("name", "SEO Analysis Opportunity"),
+                "pipeline":    deal_info.get("pipeline", "default"),
+                "dealstage":   deal_info.get("dealstage", "appointmentscheduled"),
+                "amount":      deal_info.get("amount", "0"),
+                "description": deal_info.get("description", ""),
             }
 
-            response = self.client.crm.deals.basic_api.create(
-                simple_public_object_input={"properties": properties}
+            deal = self.client.crm.deals.basic_api.create(
+                simple_public_object_input_for_create=DealCreate(properties=props)
             )
-
-            # Associate deal with contact
             self.client.crm.deals.associations_api.create(
-                deal_id=response.id,
+                deal_id=deal.id,
                 to_object_type="contacts",
                 to_object_id=contact_id,
                 association_type="deal_to_contact"
             )
-
-            return response.id
+            return deal.id
 
         except Exception as e:
-            print(f"Error creating deal in HubSpot: {str(e)}")
-            return None 
+            print(f"Error creating deal in HubSpot: {e}")
+            return None
+
+    def create_analysis_note(self, contact_id: str, analysis: Dict) -> Optional[str]:
+        """
+        Attach a Note to the given contact containing the full analysis JSON,
+        via the CRM Objects Notes API.
+        """
+        try:
+            # 1) Build the note payload
+            body = json.dumps(analysis, indent=2)
+            note_input = NoteCreateInput(properties={
+                "hs_note_body": body,
+                "hs_timestamp": str(int(time.time() * 1000))
+            })
+
+            # 2) Create the Note object
+            note_obj = self.client.crm.objects.basic_api.create(
+                object_type="notes",
+                simple_public_object_input_for_create=note_input
+            )
+            note_id = note_obj.id
+
+            # 3) Associate the Note to the Contact
+            self.client.crm.objects.associations_api.create(
+                object_type="notes",
+                object_id=note_id,
+                to_object_type="contacts",
+                to_object_id=contact_id,
+                association_type="note_to_contact"
+            )
+
+            return note_id
+
+        except Exception as e:
+            print(f"Error creating analysis note: {e}")
+            return None
