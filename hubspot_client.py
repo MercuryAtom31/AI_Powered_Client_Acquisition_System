@@ -89,16 +89,17 @@ class HubSpotClient:
             return None
 
 
+
     def create_analysis_note(self, contact_id: str, analysis: Dict) -> Optional[str]:
         """
         Attach a Note to the given contact containing the full analysis JSON,
-        wrapped in an HTML <pre> so HubSpot preserves formatting.
+        wrapped in an HTML <pre> so HubSpot preserves formatting and non-ASCII chars.
         """
         try:
-            # 1) Dump JSON
-            raw_json = json.dumps(analysis, indent=2)
+            # 1) Dump JSON without ASCII-escaping, indent for readability
+            raw_json = json.dumps(analysis, indent=2, ensure_ascii=False)
 
-            # 2) Wrap in a <pre> (and <code>) so the timeline renders a code block
+            # 2) Wrap in <pre> so HubSpot shows it as a code block
             body_html = (
                 "<pre style='white-space: pre-wrap; "
                 "font-family: monospace; font-size: 0.85rem;'>"
