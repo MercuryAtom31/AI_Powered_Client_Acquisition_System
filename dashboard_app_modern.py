@@ -17,6 +17,9 @@ from hubspot.crm.contacts import SimplePublicObjectInputForCreate as ContactCrea
 from typing import List, Dict, Optional
 from datetime import datetime
 import logging
+import os
+
+HUBSPOT_OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -520,68 +523,52 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
 
 def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, unique_id: str = ""):
     """Display a single analysis result with modern card design."""
-    url = analysis_result.get('url', 'N/A')
-    seo = analysis_result.get('seo_analysis', {})
+    url          = analysis_result.get('url', 'N/A')
+    seo          = analysis_result.get('seo_analysis', {})
     contact_info = analysis_result.get('contact_info', {})
-    ai_analysis = analysis_result.get('ai_analysis', {})
-    key_suffix = f"{unique_id}_{url}"
+    ai_analysis  = analysis_result.get('ai_analysis', {})
+    key_suffix   = f"{unique_id}_{url}"
     
     # Get SEO score and grade
-    seo_score = seo.get('overall_score', 0)
-    grade, grade_class = get_seo_grade(seo_score)
+    seo_score, grade, grade_class = seo.get('overall_score', 0), *get_seo_grade(seo.get('overall_score', 0))
     
-    # Create the analysis card
-    st.markdown(
-        f"""
+    # Render the card
+    st.markdown(f"""
         <div class="analysis-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h3 style="margin: 0; color: #1e293b; font-size: 1.1rem;">🌐 {url}</h3>
-                <div class="score-badge {grade_class}">
-                    {grade} ({seo_score}/100)
-                </div>
-            </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <h3 style="margin:0;color:#1e293b;font-size:1.1rem;">🌐 {url}</h3>
+            <div class="score-badge {grade_class}">{grade} ({seo_score}/100)</div>
+          </div>
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
     
-    # SEO Analysis Details
+    # SEO details
     if seo:
         st.markdown("#### 📊 SEO Analysis Details")
-        checks_results = seo.get('checks', {})
-        for check_name, check_result in checks_results.items():
+        for check_name, check_result in seo.get('checks', {}).items():
             if 'error' not in check_result:
-                issues = []
                 for k, v in check_result.items():
-                    if k != 'recommendations':
-                        if isinstance(v, bool) and not v:
-                            issues.append(f"⚠️ {k.replace('_', ' ').title()}")
-                        elif isinstance(v, list) and not v:
-                            issues.append(f"⚠️ Missing {k.replace('_', ' ').title()}")
-                for issue in issues:
-                    st.markdown(f'<div class="issue-item issue-warning">{issue}</div>', unsafe_allow_html=True)
-        critical_issues = seo.get('critical_issues', [])
-        if critical_issues:
-            st.markdown("**🔴 Critical Issues:**")
-            for issue in critical_issues:
-                st.markdown(f'<div class="issue-item issue-critical">🔴 {issue}</div>', unsafe_allow_html=True)
+                    if k == 'recommendations': continue
+                    if (isinstance(v, bool) and not v) or (isinstance(v, list) and not v):
+                        label = k.replace('_',' ').title()
+                        st.markdown(f'<div class="issue-item issue-warning">⚠️ {label}</div>', unsafe_allow_html=True)
+        for issue in seo.get('critical_issues', []):
+            st.markdown(f'<div class="issue-item issue-critical">🔴 {issue}</div>', unsafe_allow_html=True)
     
-    # Contact Information
-    if contact_info:
-        st.markdown("#### 📞 Contact Information")
-        emails = contact_info.get('emails', [])
-        phones = contact_info.get('phones', [])
-        if emails:
-            st.markdown(f"**📧 Emails:** {', '.join(emails)}")
-        if phones:
-            st.markdown(f"**📱 Phones:** {', '.join(phones)}")
+    # Contact info
+    st.markdown("#### 📞 Contact Information")
+    emails, phones = contact_info.get('emails', []), contact_info.get('phones', [])
+    if emails:
+        st.markdown(f"**📧 Emails:** {', '.join(emails)}")
+    if phones:
+        st.markdown(f"**📱 Phones:** {', '.join(phones)}")
     
-    # AI Analysis
+    # AI analysis
     if isinstance(ai_analysis, dict) and "response" in ai_analysis:
         st.markdown("#### 🧠 AI Analysis")
         st.write(ai_analysis['response'])
     
-    # Action Buttons
+    # Action buttons
     col1, col2, col3 = st.columns(3)
     with col1:
         if st.button("🔄 Re-analyze", key=f"reanalyze_{key_suffix}"):
@@ -597,24 +584,25 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
             st.json(analysis_result)
     with col3:
         if hubspot_available and st.button("📤 Push to HubSpot", key=f"hubspot_{key_suffix}"):
-            emails = contact_info.get("emails", [])
-            phones = contact_info.get("phones", [])
-            
-            # Path A: email found → normal upsert
+            OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")
+            owner_prop = {"hubspot_owner_id": OWNER_ID} if OWNER_ID else {}
+
+            # Path A: we have an email → upsert by email
             if emails:
-                hubspot_contact_info = {
+                payload = {
                     "email":        emails[0],
                     "phone":        phones[0] if phones else "",
                     "website":      url,
-                    "seo_analysis": json.dumps(seo) if seo else ""
+                    "seo_analysis": json.dumps(seo, ensure_ascii=False),
+                    **owner_prop
                 }
-                with st.spinner("Sending to HubSpot..."):
-                    contact_id = hubspot_client.create_or_update_contact(hubspot_contact_info)
+                with st.spinner("Upserting contact by email…"):
+                    contact_id = hubspot_client.create_or_update_contact(payload)
                     if not contact_id:
                         st.error("❌ Failed to upsert contact in HubSpot")
                         return
 
-            # Path B: no email → create contact named after domain
+            # Path B: no email → create new contact named after domain
             else:
                 hostname    = urlparse(url).netloc.replace("www.", "")
                 domain_name = hostname.split(".")[0].capitalize()
@@ -622,15 +610,16 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
                     "firstname":    domain_name,
                     "phone":        phones[0] if phones else "",
                     "website":      url,
-                    "seo_analysis": json.dumps(seo) if seo else ""
+                    "seo_analysis": json.dumps(seo, ensure_ascii=False),
+                    **owner_prop
                 }
-                with st.spinner("Creating HubSpot contact for domain only..."):
+                with st.spinner("Creating contact by domain name…"):
                     new_ct = hubspot_client.client.crm.contacts.basic_api.create(
                         simple_public_object_input_for_create=ContactCreate(properties=props)
                     )
                     contact_id = new_ct.id
 
-            # In both cases, attach the analysis note
+            # Attach the analysis note
             note_id = hubspot_client.create_analysis_note(contact_id, analysis_result)
             if note_id:
                 st.success("✅ Analysis pushed as a Note on the contact!")
