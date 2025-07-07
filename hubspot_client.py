@@ -33,6 +33,7 @@ class HubSpotClient:
                 "phone":        contact_info.get("phone", ""),
                 "company":      contact_info.get("company", ""),
                 "website":      contact_info.get("website", ""),
+                "hubspot_owner_id": contact_info.get("hubspot_owner_id", ""),
                 "seo_analysis": contact_info.get("seo_analysis", ""),
             }
 
