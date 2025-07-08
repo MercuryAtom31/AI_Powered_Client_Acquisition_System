@@ -520,12 +520,102 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
 #         st.error(f"Error during business search analysis: {str(e)}")
 
 
+# def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
+#     """Runs business search and analysis pipeline."""
+#     try:
+#         # Search for businesses
+#         businesses = google_places_client.search_places(industry, city)
+
+#         if batch_size is not None:
+#             businesses = businesses[:batch_size]
+
+#         if not businesses:
+#             st.warning("No businesses found for the given criteria.")
+#             return
+
+#         # Create progress bar for business analysis
+#         business_analysis_progress = st.progress(0)
+#         business_status_text = st.empty()
+
+#         conn = sqlite3.connect('client_acquisition.db')
+#         cursor = conn.cursor()
+
+#         total_businesses = len(businesses)
+#         analyzed_businesses = 0
+
+#         for i, business in enumerate(businesses):
+#             business_status_text.text(f"🔍 Analyzing business: {business['name']}")
+
+#             # Insert the business if not already there
+#             cursor.execute('''
+#                 INSERT OR IGNORE INTO businesses (search_query, place_id, name, address, website)
+#                 VALUES (?, ?, ?, ?, ?)
+#             ''', (
+#                 f"{city} {industry}",
+#                 business['place_id'],
+#                 business['name'],
+#                 business.get('address', ''),
+#                 business.get('website', '')
+#             ))
+
+#             conn.commit()  # ✅ Ensure insertion is written to DB
+
+#             # Fetch the business ID
+#             cursor.execute('SELECT id FROM businesses WHERE place_id = ?', (business['place_id'],))
+#             row = cursor.fetchone()
+#             business_id = row[0] if row else None
+
+#             st.write(f"✅ Business ID for {business['name']}: {business_id}")  # ✅ Debug output
+
+#             # If business has a website, analyze it
+#             if business.get('website') and business_id:
+#                 try:
+#                     # Run SEO analysis
+#                     seo_result = seo_analyzer.analyze_url(business['website'])
+
+#                     # Extract contact information
+#                     contact_result = contact_extractor.extract_from_url(business['website'])
+
+#                     # Run AI analysis
+#                     ai_result = ollama_client.generate_seo_analysis(business['website'], seo_result)
+
+#                     # Combine results
+#                     analysis_result = {
+#                         'url': business['website'],
+#                         'seo_analysis': seo_result,
+#                         'contact_info': contact_result,
+#                         'ai_analysis': ai_result,
+#                         'timestamp': datetime.now().isoformat()
+#                     }
+
+#                     # Store analysis result
+#                     cursor.execute('''
+#                         INSERT OR REPLACE INTO analysis_results (business_id, url, analysis_data)
+#                         VALUES (?, ?, ?)
+#                     ''', (business_id, business['website'], json.dumps(analysis_result)))
+
+#                 except Exception as e:
+#                     st.error(f"Error analyzing {business['website']}: {str(e)}")
+
+#             analyzed_businesses += 1
+#             business_analysis_progress.progress(analyzed_businesses / total_businesses)
+
+#         conn.commit()
+#         conn.close()
+
+#         business_analysis_progress.empty()
+#         business_status_text.empty()
+#         st.success(f"🎉 Business search and analysis complete for {len(businesses)} businesses!")
+
+#     except Exception as e:
+#         st.error(f"Error during business search analysis: {str(e)}")
+
+
 def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
     """Runs business search and analysis pipeline."""
     try:
-        # Search for businesses
+        # 1. Search for businesses (Nearby Search)
         businesses = google_places_client.search_places(industry, city)
-
         if batch_size is not None:
             businesses = businesses[:batch_size]
 
@@ -533,82 +623,84 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
             st.warning("No businesses found for the given criteria.")
             return
 
-        # Create progress bar for business analysis
-        business_analysis_progress = st.progress(0)
-        business_status_text = st.empty()
+        # 2. Set up Streamlit progress indicators
+        progress_bar = st.progress(0)
+        status_text  = st.empty()
 
-        conn = sqlite3.connect('client_acquisition.db')
+        # 3. Open DB connection
+        conn   = sqlite3.connect('client_acquisition.db')
         cursor = conn.cursor()
 
-        total_businesses = len(businesses)
-        analyzed_businesses = 0
+        total = len(businesses)
+        for i, biz in enumerate(businesses, start=1):
+            name     = biz.get('name', 'N/A')
+            place_id = biz.get('place_id')
+            status_text.text(f"🔍 Processing {name}...")
 
-        for i, business in enumerate(businesses):
-            business_status_text.text(f"🔍 Analyzing business: {business['name']}")
+            # 4. Fetch place-details (website, address, international_phone_number…)
+            details = google_places_client.get_place_details(place_id) or {}
+            website = details.get('website', '')
+            address = details.get('formatted_address', '')
 
-            # Insert the business if not already there
+            # 5. Upsert into businesses table
             cursor.execute('''
-                INSERT OR IGNORE INTO businesses (search_query, place_id, name, address, website)
+                INSERT INTO businesses (search_query, place_id, name, address, website)
                 VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(place_id) DO UPDATE SET
+                  address = excluded.address,
+                  website = excluded.website
             ''', (
                 f"{city} {industry}",
-                business['place_id'],
-                business['name'],
-                business.get('address', ''),
-                business.get('website', '')
+                place_id,
+                name,
+                address,
+                website
             ))
+            conn.commit()
 
-            conn.commit()  # ✅ Ensure insertion is written to DB
+            # 6. Grab the newly-inserted business ID
+            cursor.execute('SELECT id FROM businesses WHERE place_id = ?', (place_id,))
+            business_id = cursor.fetchone()[0]
 
-            # Fetch the business ID
-            cursor.execute('SELECT id FROM businesses WHERE place_id = ?', (business['place_id'],))
-            row = cursor.fetchone()
-            business_id = row[0] if row else None
-
-            st.write(f"✅ Business ID for {business['name']}: {business_id}")  # ✅ Debug output
-
-            # If business has a website, analyze it
-            if business.get('website') and business_id:
+            # 7. If we have a website, run your SEO → AI pipeline
+            if website:
                 try:
-                    # Run SEO analysis
-                    seo_result = seo_analyzer.analyze_url(business['website'])
+                    seo_result     = seo_analyzer.analyze_url(website)
+                    contact_result = contact_extractor.extract_from_url(website)
+                    ai_result      = ollama_client.generate_seo_analysis(website, seo_result)
 
-                    # Extract contact information
-                    contact_result = contact_extractor.extract_from_url(business['website'])
-
-                    # Run AI analysis
-                    ai_result = ollama_client.generate_seo_analysis(business['website'], seo_result)
-
-                    # Combine results
-                    analysis_result = {
-                        'url': business['website'],
+                    analysis_payload = {
+                        'url':          website,
                         'seo_analysis': seo_result,
                         'contact_info': contact_result,
-                        'ai_analysis': ai_result,
-                        'timestamp': datetime.now().isoformat()
+                        'ai_analysis':  ai_result,
+                        'timestamp':    datetime.now().isoformat()
                     }
 
-                    # Store analysis result
                     cursor.execute('''
-                        INSERT OR REPLACE INTO analysis_results (business_id, url, analysis_data)
+                        INSERT OR REPLACE INTO analysis_results
+                          (business_id, url, analysis_data)
                         VALUES (?, ?, ?)
-                    ''', (business_id, business['website'], json.dumps(analysis_result)))
+                    ''', (
+                        business_id,
+                        website,
+                        json.dumps(analysis_payload, ensure_ascii=False)
+                    ))
+                    conn.commit()
 
                 except Exception as e:
-                    st.error(f"Error analyzing {business['website']}: {str(e)}")
+                    st.error(f"Error analyzing {website}: {e}")
 
-            analyzed_businesses += 1
-            business_analysis_progress.progress(analyzed_businesses / total_businesses)
+            # 8. Update progress bar
+            progress_bar.progress(i / total)
 
-        conn.commit()
+        # 9. Clean up UI and DB
+        progress_bar.empty()
+        status_text.empty()
         conn.close()
 
-        business_analysis_progress.empty()
-        business_status_text.empty()
-        st.success(f"🎉 Business search and analysis complete for {len(businesses)} businesses!")
-
     except Exception as e:
-        st.error(f"Error during business search analysis: {str(e)}")
+        st.error(f"Error during business search analysis: {e}")
 
 
 
@@ -799,45 +891,101 @@ with col2:
 #         st.error(f"Error loading data: {e}")
 #         return {}
 
+# def load_data():
+#     """Loads all analysis results, organized by business or direct URL."""
+#     try:
+#         conn = sqlite3.connect('client_acquisition.db')
+#         cursor = conn.cursor()
+
+#         # Fetch businesses and their linked analysis results
+#         cursor.execute('''
+#             SELECT b.name, b.website, b.search_query, ar.url, ar.analysis_data
+#             FROM businesses b
+#             JOIN analysis_results ar ON b.id = ar.business_id
+#             ORDER BY b.search_query, b.name, ar.url
+#         ''')
+#         business_results = cursor.fetchall()
+
+#         # Fetch analysis results from direct URL input (where business_id is NULL)
+#         cursor.execute('''
+#             SELECT id, url, analysis_data, timestamp
+#             FROM analysis_results ar
+#             WHERE ar.business_id IS NULL
+#             ORDER BY ar.url, ar.timestamp DESC
+#         ''')
+#         direct_url_results = cursor.fetchall()
+
+#         conn.close()
+
+#         # Organize results for display
+#         organized_results = defaultdict(lambda: defaultdict(list))
+
+#         for name, website, search_query, url, analysis_data_json in business_results:
+#             organized_results[f"Search: {search_query}"][f"Business: {name} ({website})"][url].append(json.loads(analysis_data_json))
+
+#         for analysis_id, url, analysis_data_json, timestamp in direct_url_results:
+#             analysis_dict = json.loads(analysis_data_json)
+#             analysis_dict['id'] = analysis_id
+#             analysis_dict['timestamp'] = timestamp
+#             organized_results["Direct URLs"][url].append(analysis_dict)
+
+#         return organized_results
+
+#     except Exception as e:
+#         st.error(f"Error loading data: {e}")
+#         return {}
+
+
 def load_data():
     """Loads all analysis results, organized by business or direct URL."""
     try:
         conn = sqlite3.connect('client_acquisition.db')
         cursor = conn.cursor()
 
-        # Fetch businesses and their linked analysis results
+        # 1) Fetch all business‐linked analyses
         cursor.execute('''
             SELECT b.name, b.website, b.search_query, ar.url, ar.analysis_data
             FROM businesses b
             JOIN analysis_results ar ON b.id = ar.business_id
             ORDER BY b.search_query, b.name, ar.url
         ''')
-        business_results = cursor.fetchall()
+        business_rows = cursor.fetchall()
 
-        # Fetch analysis results from direct URL input (where business_id is NULL)
+        # 2) Fetch all direct‐URL analyses
         cursor.execute('''
             SELECT id, url, analysis_data, timestamp
-            FROM analysis_results ar
-            WHERE ar.business_id IS NULL
-            ORDER BY ar.url, ar.timestamp DESC
+            FROM analysis_results
+            WHERE business_id IS NULL
+            ORDER BY url, timestamp DESC
         ''')
-        direct_url_results = cursor.fetchall()
+        direct_rows = cursor.fetchall()
 
         conn.close()
 
-        # Organize results for display
-        organized_results = defaultdict(lambda: defaultdict(list))
+        organized = {}
 
-        for name, website, search_query, url, analysis_data_json in business_results:
-            organized_results[f"Search: {search_query}"][f"Business: {name} ({website})"][url].append(json.loads(analysis_data_json))
+        # 3) Build the "Search: ..." groups
+        for name, website, search_query, page_url, analysis_json in business_rows:
+            group_key     = f"Search: {search_query}"
+            business_key  = f"Business: {name} ({website})"
+            analysis_dict = json.loads(analysis_json)
 
-        for analysis_id, url, analysis_data_json, timestamp in direct_url_results:
-            analysis_dict = json.loads(analysis_data_json)
-            analysis_dict['id'] = analysis_id
-            analysis_dict['timestamp'] = timestamp
-            organized_results["Direct URLs"][url].append(analysis_dict)
+            # Ensure all three nesting levels exist
+            organized.setdefault(group_key, {})
+            organized[group_key].setdefault(business_key, {})
+            organized[group_key][business_key].setdefault(page_url, [])
+            organized[group_key][business_key][page_url].append(analysis_dict)
 
-        return organized_results
+        # 4) Build the "Direct URLs" group
+        direct_key = "Direct URLs"
+        organized[direct_key] = {}
+        for analysis_id, page_url, analysis_json, ts in direct_rows:
+            record = json.loads(analysis_json)
+            record['id']        = analysis_id
+            record['timestamp'] = ts
+            organized[direct_key].setdefault(page_url, []).append(record)
+
+        return organized
 
     except Exception as e:
         st.error(f"Error loading data: {e}")
