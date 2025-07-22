@@ -740,12 +740,12 @@ organized_data = load_data()
 if organized_data:
     # Summary Statistics
     total_analyzed_urls = 0
-    for group_name, businesses_or_urls_dict in organized_data.items():
+    for group_name, businesses_or_urls in organized_data.items():
         if group_name == "Direct URLs":
-            for analysis_list_for_url in businesses_or_urls_dict.values():
+            for analysis_list_for_url in businesses_or_urls.values():
                 total_analyzed_urls += len(analysis_list_for_url)
         else:
-            for business_pages_dict in businesses_or_urls_dict.values():
+            for business_pages_dict in businesses_or_urls.values():
                 for analysis_list_for_page in business_pages_dict.values():
                     total_analyzed_urls += len(analysis_list_for_page)
 
@@ -837,12 +837,15 @@ if organized_data:
         
         for business_or_url, pages in businesses_or_urls.items():
             if group_name.startswith("Search:"):
-                with st.expander(business_or_url):
-                     for page_url, analyses in pages.items():
-                          st.write(f"**Page:** {page_url}")
-                          for idx, analysis_result in enumerate(analyses):
-                               unique_id = str(analysis_result.get('id', idx))
-                               _display_analysis_result(analysis_result, hubspot_available, unique_id=unique_id)
+                # Business Finder section: show number of analyses per website
+                for page_url, analyses in pages.items():
+                    expander_label = f"{page_url} ({len(analyses)} analyses)"
+                    with st.expander(expander_label):
+                        for idx, analysis_result in enumerate(analyses):
+                            timestamp = analysis_result.get('timestamp', 'N/A')
+                            st.markdown(f"**Analysis {idx + 1} (Date: {timestamp})**")
+                            unique_id = str(analysis_result.get('id', idx))
+                            _display_analysis_result(analysis_result, hubspot_available, unique_id=unique_id)
             else:
                 url = business_or_url
                 analyses = pages
