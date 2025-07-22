@@ -438,184 +438,11 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
         st.error(f"Error during analysis pipeline: {str(e)}")
         conn.close()
 
-# def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
-#     """Runs business search and analysis pipeline."""
-#     try:
-#         # Search for businesses
-#         businesses = google_places_client.search_places(industry, city)
-        
-#         if batch_size is not None:
-#             businesses = businesses[:batch_size]
-        
-#         if not businesses:
-#             st.warning("No businesses found for the given criteria.")
-#             return
-        
-#         # Create progress bar for business analysis
-#         business_analysis_progress = st.progress(0)
-#         business_status_text = st.empty()
-        
-#         conn = sqlite3.connect('client_acquisition.db')
-#         cursor = conn.cursor()
-        
-#         total_businesses = len(businesses)
-#         analyzed_businesses = 0
-        
-#         for i, business in enumerate(businesses):
-#             business_status_text.text(f"🔍 Analyzing business: {business['name']}")
-            
-#             # Store business in database
-#             cursor.execute('''
-#                 INSERT OR IGNORE INTO businesses (search_query, place_id, name, address, website)
-#                 VALUES (?, ?, ?, ?, ?)
-#             ''', (f"{city} {industry}", business['place_id'], business['name'], 
-#                   business.get('address', ''), business.get('website', '')))
-
-#             # Always fetch the business ID
-#             cursor.execute('SELECT id FROM businesses WHERE place_id = ?', (business['place_id'],))
-#             row = cursor.fetchone()
-#             business_id = row[0] if row else None
-            
-#             # If business has a website, analyze it
-#             if business.get('website'):
-#                 try:
-#                     # Run SEO analysis
-#                     seo_result = seo_analyzer.analyze_url(business['website'])
-                    
-#                     # Extract contact information
-#                     contact_result = contact_extractor.extract_from_url(business['website'])
-                    
-#                     # Run AI analysis
-#                     ai_result = ollama_client.generate_seo_analysis(business['website'], seo_result)
-                    
-#                     # Combine results
-#                     analysis_result = {
-#                         'url': business['website'],
-#                         'seo_analysis': seo_result,
-#                         'contact_info': contact_result,
-#                         'ai_analysis': ai_result,
-#                         'timestamp': datetime.now().isoformat()
-#                     }
-                    
-#                     # Store analysis result
-#                     cursor.execute('''
-#                         INSERT OR REPLACE INTO analysis_results (business_id, url, analysis_data)
-#                         VALUES (?, ?, ?)
-#                     ''', (business_id, business['website'], json.dumps(analysis_result)))
-                    
-#                 except Exception as e:
-#                     st.error(f"Error analyzing {business['website']}: {str(e)}")
-            
-#             analyzed_businesses += 1
-#             business_analysis_progress.progress(analyzed_businesses / total_businesses)
-        
-#         conn.commit()
-#         conn.close()
-        
-#         business_analysis_progress.empty()
-#         business_status_text.empty()
-#         st.success(f"🎉 Business search and analysis complete for {len(businesses)} businesses!")
-        
-#     except Exception as e:
-#         st.error(f"Error during business search analysis: {str(e)}")
-
-
-# def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
-#     """Runs business search and analysis pipeline."""
-#     try:
-#         # Search for businesses
-#         businesses = google_places_client.search_places(industry, city)
-
-#         if batch_size is not None:
-#             businesses = businesses[:batch_size]
-
-#         if not businesses:
-#             st.warning("No businesses found for the given criteria.")
-#             return
-
-#         # Create progress bar for business analysis
-#         business_analysis_progress = st.progress(0)
-#         business_status_text = st.empty()
-
-#         conn = sqlite3.connect('client_acquisition.db')
-#         cursor = conn.cursor()
-
-#         total_businesses = len(businesses)
-#         analyzed_businesses = 0
-
-#         for i, business in enumerate(businesses):
-#             business_status_text.text(f"🔍 Analyzing business: {business['name']}")
-
-#             # Insert the business if not already there
-#             cursor.execute('''
-#                 INSERT OR IGNORE INTO businesses (search_query, place_id, name, address, website)
-#                 VALUES (?, ?, ?, ?, ?)
-#             ''', (
-#                 f"{city} {industry}",
-#                 business['place_id'],
-#                 business['name'],
-#                 business.get('address', ''),
-#                 business.get('website', '')
-#             ))
-
-#             conn.commit()  # ✅ Ensure insertion is written to DB
-
-#             # Fetch the business ID
-#             cursor.execute('SELECT id FROM businesses WHERE place_id = ?', (business['place_id'],))
-#             row = cursor.fetchone()
-#             business_id = row[0] if row else None
-
-#             st.write(f"✅ Business ID for {business['name']}: {business_id}")  # ✅ Debug output
-
-#             # If business has a website, analyze it
-#             if business.get('website') and business_id:
-#                 try:
-#                     # Run SEO analysis
-#                     seo_result = seo_analyzer.analyze_url(business['website'])
-
-#                     # Extract contact information
-#                     contact_result = contact_extractor.extract_from_url(business['website'])
-
-#                     # Run AI analysis
-#                     ai_result = ollama_client.generate_seo_analysis(business['website'], seo_result)
-
-#                     # Combine results
-#                     analysis_result = {
-#                         'url': business['website'],
-#                         'seo_analysis': seo_result,
-#                         'contact_info': contact_result,
-#                         'ai_analysis': ai_result,
-#                         'timestamp': datetime.now().isoformat()
-#                     }
-
-#                     # Store analysis result
-#                     cursor.execute('''
-#                         INSERT OR REPLACE INTO analysis_results (business_id, url, analysis_data)
-#                         VALUES (?, ?, ?)
-#                     ''', (business_id, business['website'], json.dumps(analysis_result)))
-
-#                 except Exception as e:
-#                     st.error(f"Error analyzing {business['website']}: {str(e)}")
-
-#             analyzed_businesses += 1
-#             business_analysis_progress.progress(analyzed_businesses / total_businesses)
-
-#         conn.commit()
-#         conn.close()
-
-#         business_analysis_progress.empty()
-#         business_status_text.empty()
-#         st.success(f"🎉 Business search and analysis complete for {len(businesses)} businesses!")
-
-#     except Exception as e:
-#         st.error(f"Error during business search analysis: {str(e)}")
-
-
-def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
+def run_business_search_analysis(city: str, industry: str, batch_size: int = 5, page: int = 1):
     """Runs business search and analysis pipeline."""
     try:
         # 1. Search for businesses (Nearby Search)
-        businesses = google_places_client.search_places(industry, city)
+        businesses = google_places_client.search_places(industry, city, page=page)
         if batch_size is not None:
             businesses = businesses[:batch_size]
 
@@ -630,6 +457,10 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
         # 3. Open DB connection
         conn   = sqlite3.connect('client_acquisition.db')
         cursor = conn.cursor()
+
+        # 3.1 Fetch all already-analyzed URLs
+        cursor.execute('SELECT url FROM analysis_results')
+        already_analyzed_urls = set(row[0] for row in cursor.fetchall())
 
         total = len(businesses)
         for i, biz in enumerate(businesses, start=1):
@@ -662,8 +493,12 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
             cursor.execute('SELECT id FROM businesses WHERE place_id = ?', (place_id,))
             business_id = cursor.fetchone()[0]
 
-            # 7. If we have a website, run your SEO → AI pipeline
+            # 7. If we have a website, check if already analyzed
             if website:
+                if website in already_analyzed_urls:
+                    status_text.text(f"⏩ Skipping already analyzed: {website}")
+                    progress_bar.progress(i / total)
+                    continue
                 try:
                     seo_result     = seo_analyzer.analyze_url(website)
                     contact_result = contact_extractor.extract_from_url(website)
@@ -687,7 +522,7 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
                         json.dumps(analysis_payload, ensure_ascii=False)
                     ))
                     conn.commit()
-
+                    already_analyzed_urls.add(website)
                 except Exception as e:
                     st.error(f"Error analyzing {website}: {e}")
 
@@ -701,8 +536,6 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5):
 
     except Exception as e:
         st.error(f"Error during business search analysis: {e}")
-
-
 
 def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, unique_id: str = ""):
     """Display a single analysis result with modern card design."""
@@ -809,7 +642,6 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
             else:
                 st.error("❌ Contact upserted, but failed to add Note.")
 
-
 # URL Analysis Section
 st.markdown('<h2 id="url-analysis">🧠 AI SEO Analyzer</h2>', unsafe_allow_html=True)
 
@@ -845,97 +677,6 @@ with col2:
             st.error("Please enter at least one URL to analyze.")
 
 # Load and display results
-# def load_data():
-#     """Loads all analysis results, organized by business or direct URL."""
-#     try:
-#         conn = sqlite3.connect('client_acquisition.db')
-#         cursor = conn.cursor()
-        
-#         # Fetch businesses and their linked analysis results
-#         cursor.execute('''
-#             SELECT b.name, b.website, b.search_query, ar.url, ar.analysis_data
-#             FROM businesses b
-#             JOIN analysis_results ar ON b.id = ar.business_id
-#             ORDER BY b.search_query, b.name, ar.url
-#         ''')
-#         business_results = cursor.fetchall()
-        
-#         # Fetch analysis results from direct URL input (where business_id is NULL)
-#         cursor.execute('''
-#             SELECT id, url, analysis_data, timestamp
-#             FROM analysis_results ar
-#             WHERE ar.business_id IS NULL
-#             ORDER BY ar.url, ar.timestamp DESC
-#         ''')
-#         direct_url_results = cursor.fetchall()
-        
-#         conn.close()
-        
-#         # Organize results for display
-#         organized_results = defaultdict(lambda: defaultdict(list))
-        
-#         # Add business search results
-#         for name, website, search_query, url, analysis_data_json in business_results:
-#             organized_results[f"Search: {search_query}"][f"Business: {name} ({website})"][url].append(json.loads(analysis_data_json))
-            
-#         # Add direct URL results
-#         for analysis_id, url, analysis_data_json, timestamp in direct_url_results:
-#              analysis_dict = json.loads(analysis_data_json)
-#              analysis_dict['id'] = analysis_id
-#              analysis_dict['timestamp'] = timestamp
-#              organized_results["Direct URLs"][url].append(analysis_dict)
-        
-#         return organized_results
-        
-#     except Exception as e:
-#         st.error(f"Error loading data: {e}")
-#         return {}
-
-# def load_data():
-#     """Loads all analysis results, organized by business or direct URL."""
-#     try:
-#         conn = sqlite3.connect('client_acquisition.db')
-#         cursor = conn.cursor()
-
-#         # Fetch businesses and their linked analysis results
-#         cursor.execute('''
-#             SELECT b.name, b.website, b.search_query, ar.url, ar.analysis_data
-#             FROM businesses b
-#             JOIN analysis_results ar ON b.id = ar.business_id
-#             ORDER BY b.search_query, b.name, ar.url
-#         ''')
-#         business_results = cursor.fetchall()
-
-#         # Fetch analysis results from direct URL input (where business_id is NULL)
-#         cursor.execute('''
-#             SELECT id, url, analysis_data, timestamp
-#             FROM analysis_results ar
-#             WHERE ar.business_id IS NULL
-#             ORDER BY ar.url, ar.timestamp DESC
-#         ''')
-#         direct_url_results = cursor.fetchall()
-
-#         conn.close()
-
-#         # Organize results for display
-#         organized_results = defaultdict(lambda: defaultdict(list))
-
-#         for name, website, search_query, url, analysis_data_json in business_results:
-#             organized_results[f"Search: {search_query}"][f"Business: {name} ({website})"][url].append(json.loads(analysis_data_json))
-
-#         for analysis_id, url, analysis_data_json, timestamp in direct_url_results:
-#             analysis_dict = json.loads(analysis_data_json)
-#             analysis_dict['id'] = analysis_id
-#             analysis_dict['timestamp'] = timestamp
-#             organized_results["Direct URLs"][url].append(analysis_dict)
-
-#         return organized_results
-
-#     except Exception as e:
-#         st.error(f"Error loading data: {e}")
-#         return {}
-
-
 def load_data():
     """Loads all analysis results, organized by business or direct URL."""
     try:
@@ -954,8 +695,8 @@ def load_data():
         # 2) Fetch all direct‐URL analyses
         cursor.execute('''
             SELECT id, url, analysis_data, timestamp
-            FROM analysis_results
-            WHERE business_id IS NULL
+            FROM analysis_results ar
+            WHERE ar.business_id IS NULL
             ORDER BY url, timestamp DESC
         ''')
         direct_rows = cursor.fetchall()
@@ -990,8 +731,6 @@ def load_data():
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return {}
-
-
 
 # Display Results Section
 st.markdown('<h3>📊 Analysis Results</h3>', unsafe_allow_html=True)
@@ -1179,7 +918,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     city = st.text_input(
@@ -1207,39 +946,34 @@ with col3:
         help="Number of businesses to analyze"
     )
 
+with col4:
+    page = st.selectbox(
+        "📄 Page of Results",
+        options=[1, 2, 3],
+        index=0,
+        key="business_search_page",
+        help="Select which page of Google Places results to analyze"
+    )
+
 if st.button("🚀 Start Business Search", type="primary", use_container_width=True):
     if not city or not industry:
         st.error("Please enter both City and Industry.")
     else:
         st.session_state['business_search_triggered'] = True
 
-# if st.session_state.get('business_search_triggered', False):
-#     st.session_state.pop('business_search_triggered')
-#     run_business_search_analysis(
-#         st.session_state.get('business_search_city', ''),
-#         st.session_state.get('business_search_industry', ''),
-#         st.session_state.get('business_search_batch_size', 5)
-#     )
-#     st.session_state['business_search_complete'] = True
-#     st.session_state['last_search_city'] = st.session_state.get('business_search_city', '')
-#     st.session_state['last_search_industry'] = st.session_state.get('business_search_industry', '')
 if st.session_state.get('business_search_triggered', False):
     st.session_state.pop('business_search_triggered')
-    
     run_business_search_analysis(
         st.session_state.get('business_search_city', ''),
         st.session_state.get('business_search_industry', ''),
-        st.session_state.get('business_search_batch_size', 5)
+        st.session_state.get('business_search_batch_size', 5),
+        st.session_state.get('business_search_page', 1)
     )
-    
     st.session_state['business_search_complete'] = True
     st.session_state['last_search_city'] = st.session_state.get('business_search_city', '')
     st.session_state['last_search_industry'] = st.session_state.get('business_search_industry', '')
-
-    # ✅ This forces Streamlit to reload and show new analysis results
+    st.session_state['last_search_page'] = st.session_state.get('business_search_page', 1)
     st.rerun()
-
-
 
 if st.session_state.get('business_search_complete', False):
     st.success("🎉 Business search and analysis complete! See results above.")
