@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Set Streamlit page config
 st.set_page_config(
-    page_title="🧠 AI SEO Analyzer & Business Finder", 
+    page_title="AI SEO Analyzer & Business Finder", 
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -37,6 +37,22 @@ st.markdown(
     <style>
         /* Import Google Fonts */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+        .material-icons {
+            font-family: 'Material Icons';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 1.2em;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+            vertical-align: middle;
+        }
         
         /* Global Styles */
         .main {
@@ -204,8 +220,8 @@ st.markdown(
     </style>
     
     <nav class="main-navbar">
-        <a href="#url-analysis" class="nav-tab" id="nav-seo">🧠 AI SEO Analyzer</a>
-        <a href="#business-search" class="nav-tab" id="nav-biz">🌍 Business Finder</a>
+        <a href="#url-analysis" class="nav-tab" id="nav-seo"><span class="material-icons">psychology</span> AI SEO Analyzer</a>
+        <a href="#business-search" class="nav-tab" id="nav-biz"><span class="material-icons">public</span> Business Finder</a>
     </nav>
     
     <script>
@@ -323,7 +339,7 @@ st.markdown(
     """
     <div style="text-align: center; margin-bottom: 2rem;">
         <h1 style="font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem;">
-            🧠 AI SEO Analyzer & Business Finder
+            <span class="material-icons" style="font-size:2.2rem;vertical-align:middle;">psychology</span> AI SEO Analyzer & Business Finder
         </h1>
         <p style="font-size: 1.1rem; color: #64748b; margin: 0;">
             Professional SEO analysis and business discovery powered by AI
@@ -387,10 +403,10 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
                 if cursor.fetchone():
                     analyzed_count += 1
                     progress_bar.progress(analyzed_count / total_urls)
-                    status_text.text(f"⏭️ Skipping {url} (already analyzed)")
+                    status_text.text(f"[Skipped] {url} (already analyzed)")
                     continue
             
-            status_text.text(f"🔍 Analyzing {url}...")
+            status_text.text(f"[Analyzing] {url}...")
             
             try:
                 # Run SEO analysis
@@ -419,7 +435,7 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
                 
                 analyzed_count += 1
                 progress_bar.progress(analyzed_count / total_urls)
-                status_text.text(f"✅ Completed analysis for {url}")
+                status_text.text(f"[Done] Completed analysis for {url}")
                 
             except Exception as e:
                 st.error(f"Error analyzing {url}: {str(e)}")
@@ -432,7 +448,7 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
         
         progress_bar.empty()
         status_text.empty()
-        st.success(f"🎉 Analysis complete! Successfully analyzed {analyzed_count} URLs.")
+        st.success(f"Analysis complete! Successfully analyzed {analyzed_count} URLs.")
         
     except Exception as e:
         st.error(f"Error during analysis pipeline: {str(e)}")
@@ -466,7 +482,7 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5, 
         for i, biz in enumerate(businesses, start=1):
             name     = biz.get('name', 'N/A')
             place_id = biz.get('place_id')
-            status_text.text(f"🔍 Processing {name}...")
+            status_text.text(f"[Processing] {name}...")
 
             # 4. Fetch place-details (website, address, international_phone_number…)
             details = google_places_client.get_place_details(place_id) or {}
@@ -496,7 +512,7 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5, 
             # 7. If we have a website, check if already analyzed
             if website:
                 if website in already_analyzed_urls:
-                    status_text.text(f"⏩ Skipping already analyzed: {website}")
+                    status_text.text(f"[Skipped] already analyzed: {website}")
                     progress_bar.progress(i / total)
                     continue
                 try:
@@ -552,7 +568,7 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
     st.markdown(f"""
         <div class="analysis-card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-            <h3 style="margin:0;color:#1e293b;font-size:1.1rem;">🌐 {url}</h3>
+            <h3 style="margin:0;color:#1e293b;font-size:1.1rem;"><span class="material-icons">public</span> {url}</h3>
             <div class="score-badge {grade_class}">{grade} ({seo_score}/100)</div>
           </div>
         </div>
@@ -560,46 +576,46 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
     
     # SEO details
     if seo:
-        st.markdown("#### 📊 SEO Analysis Details")
+        st.markdown("#### <span class=\"material-icons\">bar_chart</span> SEO Analysis Details", unsafe_allow_html=True)
         for check_name, check_result in seo.get('checks', {}).items():
             if 'error' not in check_result:
                 for k, v in check_result.items():
                     if k == 'recommendations': continue
                     if (isinstance(v, bool) and not v) or (isinstance(v, list) and not v):
                         label = k.replace('_',' ').title()
-                        st.markdown(f'<div class="issue-item issue-warning">⚠️ {label}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="issue-item issue-warning"><span class="material-icons">warning</span> {label}</div>', unsafe_allow_html=True)
         for issue in seo.get('critical_issues', []):
-            st.markdown(f'<div class="issue-item issue-critical">🔴 {issue}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="issue-item issue-critical"><span class="material-icons">error</span> {issue}</div>', unsafe_allow_html=True)
     
     # Contact info
-    st.markdown("#### 📞 Contact Information")
+    st.markdown("#### <span class=\"material-icons\">contact_mail</span> Contact Information", unsafe_allow_html=True)
     emails, phones = contact_info.get('emails', []), contact_info.get('phones', [])
     if emails:
-        st.markdown(f"**📧 Emails:** {', '.join(emails)}")
+        st.markdown(f"<span class=\"material-icons\">email</span> <b>Emails:</b> {', '.join(emails)}", unsafe_allow_html=True)
     if phones:
-        st.markdown(f"**📱 Phones:** {', '.join(phones)}")
+        st.markdown(f"<span class=\"material-icons\">phone_android</span> <b>Phones:</b> {', '.join(phones)}", unsafe_allow_html=True)
     
     # AI analysis
     if isinstance(ai_analysis, dict) and "response" in ai_analysis:
-        st.markdown("#### 🧠 AI Analysis")
+        st.markdown("#### <span class=\"material-icons\">psychology</span> AI Analysis", unsafe_allow_html=True)
         st.write(ai_analysis['response'])
     
     # Action buttons
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("🔄 Re-analyze", key=f"reanalyze_{key_suffix}"):
+        if st.button("Re-analyze", key=f"reanalyze_{key_suffix}"):
             run_analysis_pipeline([url], True)
             st.rerun()
     with col2:
         details_key = f"details_open_{key_suffix}"
         if details_key not in st.session_state:
             st.session_state[details_key] = False
-        if st.button("📊 View Details", key=f"details_{key_suffix}"):
+        if st.button("View Details", key=f"details_{key_suffix}"):
             st.session_state[details_key] = not st.session_state[details_key]
         if st.session_state[details_key]:
             st.json(analysis_result)
     with col3:
-        if hubspot_available and st.button("📤 Push to HubSpot", key=f"hubspot_{key_suffix}"):
+        if hubspot_available and st.button("Push to HubSpot", key=f"hubspot_{key_suffix}"):
             OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")
             owner_prop = {"hubspot_owner_id": OWNER_ID} if OWNER_ID else {}
 
@@ -643,13 +659,13 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
                 st.error("❌ Contact upserted, but failed to add Note.")
 
 # URL Analysis Section
-st.markdown('<h2 id="url-analysis">🧠 AI SEO Analyzer</h2>', unsafe_allow_html=True)
+st.markdown('<h2 id="url-analysis"><span class="material-icons">psychology</span> AI SEO Analyzer</h2>', unsafe_allow_html=True)
 
 # URL Input Card
 st.markdown(
     """
     <div class="metric-card">
-        <h3 style="margin: 0 0 1rem 0; color: #1e293b;">📥 Enter URLs to Analyze</h3>
+        <h3 style="margin: 0 0 1rem 0; color: #1e293b;"><span class="material-icons">download</span> Enter URLs to Analyze</h3>
     </div>
     """,
     unsafe_allow_html=True
@@ -665,10 +681,10 @@ urls_input = st.text_area(
 col1, col2 = st.columns(2)
 
 with col1:
-    force_reanalysis = st.checkbox("🔄 Re-analyze existing URLs", value=False)
+    force_reanalysis = st.checkbox("Re-analyze existing URLs", value=False)
 
 with col2:
-    if st.button("🚀 Analyze URLs", type="primary", use_container_width=True):
+    if st.button("Analyze URLs", type="primary", use_container_width=True, key="analyze_urls_btn"):
         if urls_input.strip():
             urls = [url.strip() for url in urls_input.split('\n') if url.strip()]
             run_analysis_pipeline(urls, force_reanalysis)
@@ -733,7 +749,7 @@ def load_data():
         return {}
 
 # Display Results Section
-st.markdown('<h3>📊 Analysis Results</h3>', unsafe_allow_html=True)
+st.markdown('<h3><span class="material-icons">bar_chart</span> Analysis Results</h3>', unsafe_allow_html=True)
 
 organized_data = load_data()
 
@@ -900,7 +916,7 @@ if organized_data:
         if csv_rows:
             df = pd.DataFrame(csv_rows)
             st.download_button(
-                label="🧾 Export Results (CSV)",
+                label="⬇️ Export Results (CSV)",
                 data=df.to_csv(index=False),
                 file_name="analysis_results.csv",
                 mime="text/csv",
@@ -908,13 +924,13 @@ if organized_data:
             )
 
 # Business Search Section
-st.markdown('<h2 id="business-search">🌍 Business Finder</h2>', unsafe_allow_html=True)
+st.markdown('<h2 id="business-search"><span class="material-icons">public</span> Business Finder</h2>', unsafe_allow_html=True)
 
 # Business Search Card
 st.markdown(
     """
     <div class="metric-card">
-        <h3 style="margin: 0 0 1rem 0; color: #1e293b;">🔎 Search for Businesses</h3>
+        <h3 style="margin: 0 0 1rem 0; color: #1e293b;"><span class="material-icons">search</span> Search for Businesses</h3>
         <p style="color: #64748b; margin: 0;">Find and analyze businesses based on location and industry using Google Places API.</p>
     </div>
     """,
@@ -925,7 +941,7 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     city = st.text_input(
-        "📍 City",
+        "City",
         key="business_search_city",
         placeholder="e.g., Montreal",
         help="Enter the city name"
@@ -933,7 +949,7 @@ with col1:
 
 with col2:
     industry = st.text_input(
-        "🏢 Industry / Business Type",
+        "Industry / Business Type",
         key="business_search_industry",
         placeholder="e.g., digital marketing agency",
         help="Enter the type of business"
@@ -941,7 +957,7 @@ with col2:
 
 with col3:
     batch_size = st.number_input(
-        "🔢 Max Results",
+        "Max Results",
         min_value=1,
         value=5,
         step=1,
@@ -951,14 +967,15 @@ with col3:
 
 with col4:
     page = st.selectbox(
-        "📄 Page of Results",
+        "Page of Results",
         options=[1, 2, 3],
         index=0,
         key="business_search_page",
-        help="Select which page of Google Places results to analyze"
+        help="Select which page of Google Places results to analyze",
+        format_func=lambda x: f"Page {x}"
     )
 
-if st.button("🚀 Start Business Search", type="primary", use_container_width=True):
+if st.button("Start Business Search", type="primary", use_container_width=True, key="start_biz_search_btn"):
     if not city or not industry:
         st.error("Please enter both City and Industry.")
     else:
@@ -979,7 +996,7 @@ if st.session_state.get('business_search_triggered', False):
     st.rerun()
 
 if st.session_state.get('business_search_complete', False):
-    st.success("🎉 Business search and analysis complete! See results above.")
+    st.success("Business search and analysis complete! See results above.")
 
 if st.session_state.get('last_search_city') and st.session_state.get('last_search_industry'):
-    st.info(f"📊 Showing results for {st.session_state['last_search_industry']} in {st.session_state['last_search_city']}")
+    st.info(f"Showing results for {st.session_state['last_search_industry']} in {st.session_state['last_search_city']}")
