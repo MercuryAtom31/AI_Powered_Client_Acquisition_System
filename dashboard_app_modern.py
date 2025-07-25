@@ -847,9 +847,24 @@ if organized_data:
             unsafe_allow_html=True
         )
 
-    # Detailed Results
+    # Add a clear section header for Business Finder results
+    business_finder_groups = [g for g in organized_data if g.startswith("Search:")]
+    if business_finder_groups:
+        st.markdown(
+            '<h3 style="margin-top: 3rem; color: #7c3aed;">Business Finder Results</h3>'
+            '<p style="color: #64748b; margin-bottom: 2rem;">Websites discovered and analyzed via the Business Finder search feature.</p>',
+            unsafe_allow_html=True
+        )
     for group_name, businesses_or_urls in organized_data.items():
-        st.markdown(f'<h4 style="margin-top: 2rem; color: #1e293b;">{group_name}</h4>', unsafe_allow_html=True)
+        # Move the Direct URLs Results header and description here
+        if group_name == "Direct URLs":
+            st.markdown(
+                '<h3 style="margin-top: 3rem; color: #2563eb;">Direct URLs Results</h3>'
+                '<p style="color: #64748b; margin-bottom: 2rem;">Websites analyzed through the Enter URLs to Analyze section.</p>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(f'<h4 style="margin-top: 2rem; color: #1e293b;">{group_name}</h4>', unsafe_allow_html=True)
         
         for business_or_url, pages in businesses_or_urls.items():
             if group_name.startswith("Search:"):
