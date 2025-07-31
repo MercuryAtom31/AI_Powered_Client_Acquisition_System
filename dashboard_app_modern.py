@@ -19,17 +19,44 @@ from datetime import datetime
 import logging
 import os
 
+# --- Localization Setup ---
+def load_translations():
+    with open('translations.json', 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+translations = load_translations()
+
+def t(key, lang="en", **kwargs):
+    text = translations.get(lang, {}).get(key, key)
+    if kwargs:
+        return text.format(**kwargs)
+    return text
+
+# Set default language before any Streamlit command
+if "lang" not in st.session_state:
+    st.session_state["lang"] = "en"
+lang = st.session_state["lang"]
+
+# --- THIS MUST BE FIRST STREAMLIT COMMAND ---
+st.set_page_config(
+    page_title=t("app_title", lang), 
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+lang = st.session_state["lang"]
+
+# Language toggle button with Material Icon
+col1, col2, col3 = st.columns([1, 2, 1])
+with col3:
+    if st.button(f"🌐 {t('english_button' if lang == 'fr' else 'french_button', lang)}", key="lang_toggle_navbar"):
+        st.session_state["lang"] = "fr" if lang == "en" else "en"
+        st.rerun()
+
 HUBSPOT_OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Set Streamlit page config
-st.set_page_config(
-    page_title="AI SEO Analyzer & Business Finder", 
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
 
 # --- MODERN UI STYLING ---
 st.markdown(
@@ -107,6 +134,29 @@ st.markdown(
             box-shadow: 0 4px 12px rgba(118,75,162,0.15);
             font-weight: 800;
             text-shadow: none;
+        }
+        
+        /* Language Toggle Button */
+        .lang-toggle-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-left: auto;
+        }
+        
+        .lang-toggle-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         
         /* Card Styles */
@@ -220,8 +270,8 @@ st.markdown(
     </style>
     
     <nav class="main-navbar">
-        <a href="#url-analysis" class="nav-tab" id="nav-seo"><span class="material-icons">psychology</span> AI SEO Analyzer</a>
-        <a href="#business-search" class="nav-tab" id="nav-biz"><span class="material-icons">public</span> Business Finder</a>
+        <a href="#url-analysis" class="nav-tab" id="nav-seo"><span class="material-icons">psychology</span> """ + t("seo_analyzer", lang) + """</a>
+        <a href="#business-search" class="nav-tab" id="nav-biz"><span class="material-icons">public</span> """ + t("business_finder", lang) + """</a>
     </nav>
     
     <script>
@@ -263,6 +313,8 @@ st.markdown(
                     }
                 });
             });
+            
+
         });
     </script>
     """,
@@ -378,7 +430,7 @@ def get_seo_grade(score):
 def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
     """Runs the full analysis pipeline for a list of URLs and stores results."""
     if not urls:
-        st.warning("No valid URLs provided for analysis.")
+        st.warning(t("no_valid_urls_provided", lang))
         return
         
     # Create progress bar
@@ -403,10 +455,10 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
                 if cursor.fetchone():
                     analyzed_count += 1
                     progress_bar.progress(analyzed_count / total_urls)
-                    status_text.text(f"[Skipped] {url} (already analyzed)")
+                    status_text.text(t("skipped_already_analyzed", lang, url=url))
                     continue
             
-            status_text.text(f"[Analyzing] {url}...")
+            status_text.text(t("analyzing_url", lang, url=url))
             
             try:
                 # Run SEO analysis
@@ -435,10 +487,10 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
                 
                 analyzed_count += 1
                 progress_bar.progress(analyzed_count / total_urls)
-                status_text.text(f"[Done] Completed analysis for {url}")
+                status_text.text(t("completed_analysis", lang, url=url))
                 
             except Exception as e:
-                st.error(f"Error analyzing {url}: {str(e)}")
+                st.error(t("error_analyzing_url", lang, url=url, error=str(e)))
                 analyzed_count += 1
                 progress_bar.progress(analyzed_count / total_urls)
                 continue
@@ -448,10 +500,10 @@ def run_analysis_pipeline(urls: List[str], force_reanalysis: bool):
         
         progress_bar.empty()
         status_text.empty()
-        st.success(f"Analysis complete! Successfully analyzed {analyzed_count} URLs.")
+        st.success(t("analysis_complete", lang, count=analyzed_count))
         
     except Exception as e:
-        st.error(f"Error during analysis pipeline: {str(e)}")
+        st.error(t("error_during_analysis_pipeline", lang, error=str(e)))
         conn.close()
 
 def run_business_search_analysis(city: str, industry: str, batch_size: int = 5, page: int = 1):
@@ -463,7 +515,7 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5, 
             businesses = businesses[:batch_size]
 
         if not businesses:
-            st.warning("No businesses found for the given criteria.")
+            st.warning(t("no_businesses_found", lang, city=city, industry=industry))
             return
 
         # 2. Set up Streamlit progress indicators
@@ -482,7 +534,7 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5, 
         for i, biz in enumerate(businesses, start=1):
             name     = biz.get('name', 'N/A')
             place_id = biz.get('place_id')
-            status_text.text(f"[Processing] {name}...")
+            status_text.text(t("processing_business", lang, name=name))
 
             # 4. Fetch place-details (website, address, international_phone_number…)
             details = google_places_client.get_place_details(place_id) or {}
@@ -512,7 +564,7 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5, 
             # 7. If we have a website, check if already analyzed
             if website:
                 if website in already_analyzed_urls:
-                    status_text.text(f"[Skipped] already analyzed: {website}")
+                    status_text.text(t("skipped_already_analyzed", lang, url=website))
                     progress_bar.progress(i / total)
                     continue
                 try:
@@ -540,7 +592,7 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5, 
                     conn.commit()
                     already_analyzed_urls.add(website)
                 except Exception as e:
-                    st.error(f"Error analyzing {website}: {e}")
+                    st.error(t("error_analyzing_website", lang, url=website, error=str(e)))
 
             # 8. Update progress bar
             progress_bar.progress(i / total)
@@ -551,7 +603,7 @@ def run_business_search_analysis(city: str, industry: str, batch_size: int = 5, 
         conn.close()
 
     except Exception as e:
-        st.error(f"Error during business search analysis: {e}")
+        st.error(t("error_during_business_search_analysis", lang, error=str(e)))
 
 def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, unique_id: str = ""):
     """Display a single analysis result with modern card design."""
@@ -576,7 +628,7 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
     
     # SEO details
     if seo:
-        st.markdown("#### <span class=\"material-icons\">bar_chart</span> SEO Analysis Details", unsafe_allow_html=True)
+        st.markdown(f"#### <span class=\"material-icons\">bar_chart</span> {t('seo_analysis_details', lang)}", unsafe_allow_html=True)
         for check_name, check_result in seo.get('checks', {}).items():
             if 'error' not in check_result:
                 for k, v in check_result.items():
@@ -588,34 +640,34 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
             st.markdown(f'<div class="issue-item issue-critical"><span class="material-icons">error</span> {issue}</div>', unsafe_allow_html=True)
     
     # Contact info
-    st.markdown("#### <span class=\"material-icons\">contact_mail</span> Contact Information", unsafe_allow_html=True)
+    st.markdown(f"#### <span class=\"material-icons\">contact_mail</span> {t('contact_information', lang)}", unsafe_allow_html=True)
     emails, phones = contact_info.get('emails', []), contact_info.get('phones', [])
     if emails:
-        st.markdown(f"<span class=\"material-icons\">email</span> <b>Emails:</b> {', '.join(emails)}", unsafe_allow_html=True)
+        st.markdown(f"<span class=\"material-icons\">email</span> <b>{t('emails', lang)}:</b> {', '.join(emails)}", unsafe_allow_html=True)
     if phones:
-        st.markdown(f"<span class=\"material-icons\">phone_android</span> <b>Phones:</b> {', '.join(phones)}", unsafe_allow_html=True)
+        st.markdown(f"<span class=\"material-icons\">phone_android</span> <b>{t('phones', lang)}:</b> {', '.join(phones)}", unsafe_allow_html=True)
     
     # AI analysis
     if isinstance(ai_analysis, dict) and "response" in ai_analysis:
-        st.markdown("#### <span class=\"material-icons\">psychology</span> AI Analysis", unsafe_allow_html=True)
+        st.markdown(f"#### <span class=\"material-icons\">psychology</span> {t('ai_analysis', lang)}", unsafe_allow_html=True)
         st.write(ai_analysis['response'])
     
     # Action buttons
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("Re-analyze", key=f"reanalyze_{key_suffix}"):
+        if st.button(t("re_analyze", lang), key=f"reanalyze_{key_suffix}"):
             run_analysis_pipeline([url], True)
             st.rerun()
     with col2:
         details_key = f"details_open_{key_suffix}"
         if details_key not in st.session_state:
             st.session_state[details_key] = False
-        if st.button("View Details", key=f"details_{key_suffix}"):
+        if st.button(t("view_details", lang), key=f"details_{key_suffix}"):
             st.session_state[details_key] = not st.session_state[details_key]
         if st.session_state[details_key]:
             st.json(analysis_result)
     with col3:
-        if hubspot_available and st.button("Push to HubSpot", key=f"hubspot_{key_suffix}"):
+        if hubspot_available and st.button(t("push_to_hubspot", lang), key=f"hubspot_{key_suffix}"):
             OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")
             owner_prop = {"hubspot_owner_id": OWNER_ID} if OWNER_ID else {}
 
@@ -628,10 +680,10 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
                     "seo_analysis": json.dumps(seo, ensure_ascii=False),
                     **owner_prop
                 }
-                with st.spinner("Upserting contact by email…"):
+                with st.spinner(t("upserting_contact_by_email", lang)):
                     contact_id = hubspot_client.create_or_update_contact(payload)
                     if not contact_id:
-                        st.error("❌ Failed to upsert contact in HubSpot")
+                        st.error(t("failed_to_upsert_contact_hubspot", lang))
                         return
 
             # Path B: no email → create new contact named after domain
@@ -645,7 +697,7 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
                     "seo_analysis": json.dumps(seo, ensure_ascii=False),
                     **owner_prop
                 }
-                with st.spinner("Creating contact by domain name…"):
+                with st.spinner(t("creating_contact_by_domain_name", lang)):
                     new_ct = hubspot_client.client.crm.contacts.basic_api.create(
                         simple_public_object_input_for_create=ContactCreate(properties=props)
                     )
@@ -654,43 +706,43 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
             # Attach the analysis note
             note_id = hubspot_client.create_analysis_note(contact_id, analysis_result)
             if note_id:
-                st.success("✅ Analysis pushed as a Note on the contact!")
+                st.success(t("analysis_pushed_as_note", lang))
             else:
-                st.error("❌ Contact upserted, but failed to add Note.")
+                st.error(t("contact_upserted_but_failed_to_add_note", lang))
 
 # URL Analysis Section
-st.markdown('<h2 id="url-analysis"><span class="material-icons">psychology</span> AI SEO Analyzer</h2>', unsafe_allow_html=True)
+st.markdown(f'<h2 id="url-analysis"><span class="material-icons">psychology</span> {t("seo_analyzer", lang)}</h2>', unsafe_allow_html=True)
 
 # URL Input Card
 st.markdown(
-    """
+    f'''
     <div class="metric-card">
-        <h3 style="margin: 0 0 1rem 0; color: #1e293b;"><span class="material-icons">download</span> Enter URLs to Analyze</h3>
+        <h3 style="margin: 0 0 1rem 0; color: #1e293b;"><span class="material-icons">download</span> {t("enter_urls", lang)}</h3>
     </div>
-    """,
+    ''',
     unsafe_allow_html=True
 )
 
 urls_input = st.text_area(
-    "Enter URLs (one per line):",
+    t("enter_urls", lang),
     height=120,
-    placeholder="https://example.com\nhttps://another-site.com",
-    help="Enter the URLs you want to analyze, one per line"
+    placeholder=t("urls_placeholder", lang),
+    help=t("urls_help", lang)
 )
 
 col1, col2 = st.columns(2)
 
 with col1:
-    force_reanalysis = st.checkbox("Re-analyze existing URLs", value=False)
+    force_reanalysis = st.checkbox(t("reanalyze_existing", lang), value=False)
 
 with col2:
-    if st.button("Analyze URLs", type="primary", use_container_width=True, key="analyze_urls_btn"):
+    if st.button(t("analyze_urls", lang), type="primary", use_container_width=True, key="analyze_urls_btn"):
         if urls_input.strip():
             urls = [url.strip() for url in urls_input.split('\n') if url.strip()]
             run_analysis_pipeline(urls, force_reanalysis)
             st.rerun()
         else:
-            st.error("Please enter at least one URL to analyze.")
+            st.error(t("error_enter_url", lang))
 
 # Load and display results
 def load_data():
@@ -749,7 +801,7 @@ def load_data():
         return {}
 
 # Display Results Section
-st.markdown('<h3><span class="material-icons">bar_chart</span> Analysis Results</h3>', unsafe_allow_html=True)
+st.markdown(f'<h3><span class="material-icons">bar_chart</span> {t("analysis_results", lang)}</h3>', unsafe_allow_html=True)
 
 organized_data = load_data()
 
@@ -777,7 +829,7 @@ if organized_data:
             <div class="metric-card">
                 <div style="text-align: center;">
                     <div style="font-size: 2rem; font-weight: 700; color: #667eea;">{total_analyzed_urls}</div>
-                    <div style="color: #64748b; font-size: 0.875rem;">Total URLs Analyzed</div>
+                    <div style="color: #64748b; font-size: 0.875rem;">{t('total_urls_analyzed', lang)}</div>
                 </div>
             </div>
             """,
@@ -790,7 +842,7 @@ if organized_data:
             <div class="metric-card">
                 <div style="text-align: center;">
                     <div style="font-size: 2rem; font-weight: 700; color: #10b981;">{total_businesses}</div>
-                    <div style="color: #64748b; font-size: 0.875rem;">Businesses Found</div>
+                    <div style="color: #64748b; font-size: 0.875rem;">{t('businesses_found', lang)}</div>
                 </div>
             </div>
             """,
@@ -803,7 +855,7 @@ if organized_data:
             <div class="metric-card">
                 <div style="text-align: center;">
                     <div style="font-size: 2rem; font-weight: 700; color: #f59e0b;">{total_direct_urls}</div>
-                    <div style="color: #64748b; font-size: 0.875rem;">Direct URLs</div>
+                    <div style="color: #64748b; font-size: 0.875rem;">{t('direct_urls', lang)}</div>
                 </div>
             </div>
             """,
@@ -840,7 +892,7 @@ if organized_data:
             <div class="metric-card">
                 <div style="text-align: center;">
                     <div style="font-size: 2rem; font-weight: 700; color: #764ba2;">{avg_score}</div>
-                    <div style="color: #64748b; font-size: 0.875rem;">Avg Score ({grade})</div>
+                    <div style="color: #64748b; font-size: 0.875rem;">{t('avg_score', lang, grade=grade)}</div>
                 </div>
             </div>
             """,
@@ -851,16 +903,16 @@ if organized_data:
     business_finder_groups = [g for g in organized_data if g.startswith("Search:")]
     if business_finder_groups:
         st.markdown(
-            '<h3 style="margin-top: 3rem; color: #7c3aed;">Business Finder Results</h3>'
-            '<p style="color: #64748b; margin-bottom: 2rem;">Websites discovered and analyzed via the Business Finder search feature.</p>',
+            f'<h3 style="margin-top: 3rem; color: #7c3aed;">{t("business_finder_results", lang)}</h3>'
+            f'<p style="color: #64748b; margin-bottom: 2rem;">{t("business_finder_results_desc", lang)}</p>',
             unsafe_allow_html=True
         )
     for group_name, businesses_or_urls in organized_data.items():
         # Move the Direct URLs Results header and description here
         if group_name == "Direct URLs":
             st.markdown(
-                '<h3 style="margin-top: 3rem; color: #2563eb;">Direct URLs Results</h3>'
-                '<p style="color: #64748b; margin-bottom: 2rem;">Websites analyzed through the Enter URLs to Analyze section.</p>',
+                f'<h3 style="margin-top: 3rem; color: #2563eb;">{t("direct_urls_results", lang)}</h3>'
+                f'<p style="color: #64748b; margin-bottom: 2rem;">{t("direct_urls_results_desc", lang)}</p>',
                 unsafe_allow_html=True
             )
         else:
@@ -870,19 +922,19 @@ if organized_data:
             if group_name.startswith("Search:"):
                 # Business Finder section: show number of analyses per website
                 for page_url, analyses in pages.items():
-                    expander_label = f"{page_url} ({len(analyses)} analyses)"
+                    expander_label = f"{page_url} ({len(analyses)} {t('analyses', lang)})"
                     with st.expander(expander_label):
                         for idx, analysis_result in enumerate(analyses):
                             timestamp = analysis_result.get('timestamp', 'N/A')
-                            st.markdown(f"**Analysis {idx + 1} (Date: {timestamp})**")
+                            st.markdown(f"**{t('analysis', lang)} {idx + 1} ({t('date', lang)}: {timestamp})**")
                             unique_id = str(analysis_result.get('id', idx))
                             _display_analysis_result(analysis_result, hubspot_available, unique_id=unique_id)
             else:
                 url = business_or_url
                 analyses = pages
-                with st.expander(f"{url} ({len(analyses)} analyses)"):
+                with st.expander(f"{url} ({len(analyses)} {t('analyses', lang)})"):
                     for idx, analysis_result in enumerate(analyses):
-                        st.markdown(f"**Analysis {idx + 1} (Date: {analysis_result.get('timestamp', 'N/A')})**")
+                        st.markdown(f"**{t('analysis', lang)} {idx + 1} ({t('date', lang)}: {analysis_result.get('timestamp', 'N/A')})**")
                         unique_id = str(analysis_result.get('id', idx))
                         _display_analysis_result(analysis_result, hubspot_available, unique_id=unique_id)
 
@@ -931,7 +983,7 @@ if organized_data:
         if csv_rows:
             df = pd.DataFrame(csv_rows)
             st.download_button(
-                label="⬇️ Export Results (CSV)",
+                label=t("export_results_csv", lang),
                 data=df.to_csv(index=False),
                 file_name="analysis_results.csv",
                 mime="text/csv",
@@ -939,16 +991,16 @@ if organized_data:
             )
 
 # Business Search Section
-st.markdown('<h2 id="business-search"><span class="material-icons">public</span> Business Finder</h2>', unsafe_allow_html=True)
+st.markdown(f'<h2 id="business-search"><span class="material-icons">public</span> {t("business_finder", lang)}</h2>', unsafe_allow_html=True)
 
 # Business Search Card
 st.markdown(
-    """
+    f'''
     <div class="metric-card">
-        <h3 style="margin: 0 0 1rem 0; color: #1e293b;"><span class="material-icons">search</span> Search for Businesses</h3>
-        <p style="color: #64748b; margin: 0;">Find and analyze businesses based on location and industry using Google Places API.</p>
+        <h3 style="margin: 0 0 1rem 0; color: #1e293b;"><span class="material-icons">search</span> {t("search_for_businesses", lang)}</h3>
+        <p style="color: #64748b; margin: 0;">{t("search_for_businesses_desc", lang)}</p>
     </div>
-    """,
+    ''',
     unsafe_allow_html=True
 )
 
@@ -956,43 +1008,43 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     city = st.text_input(
-        "City",
+        t("city", lang),
         key="business_search_city",
-        placeholder="e.g., Montreal",
-        help="Enter the city name"
+        placeholder=t("city_placeholder", lang),
+        help=t("city_help", lang)
     )
 
 with col2:
     industry = st.text_input(
-        "Industry / Business Type",
+        t("industry", lang),
         key="business_search_industry",
-        placeholder="e.g., digital marketing agency",
-        help="Enter the type of business"
+        placeholder=t("industry_placeholder", lang),
+        help=t("industry_help", lang)
     )
 
 with col3:
     batch_size = st.number_input(
-        "Max Results",
+        t("max_results", lang),
         min_value=1,
         value=5,
         step=1,
         key="business_search_batch_size",
-        help="Number of businesses to analyze"
+        help=t("max_results_help", lang)
     )
 
 with col4:
     page = st.selectbox(
-        "Page of Results",
+        t("page_of_results", lang),
         options=[1, 2, 3],
         index=0,
         key="business_search_page",
-        help="Select which page of Google Places results to analyze",
-        format_func=lambda x: f"Page {x}"
+        help=t("page_of_results_help", lang),
+        format_func=lambda x: f"{t('page', lang)} {x}"
     )
 
-if st.button("Start Business Search", type="primary", use_container_width=True, key="start_biz_search_btn"):
+if st.button(t("start_business_search", lang), type="primary", use_container_width=True, key="start_biz_search_btn"):
     if not city or not industry:
-        st.error("Please enter both City and Industry.")
+        st.error(t("error_city_industry", lang))
     else:
         st.session_state['business_search_triggered'] = True
 
@@ -1011,7 +1063,7 @@ if st.session_state.get('business_search_triggered', False):
     st.rerun()
 
 if st.session_state.get('business_search_complete', False):
-    st.success("Business search and analysis complete! See results above.")
+    st.success(t("business_search_complete", lang))
 
 if st.session_state.get('last_search_city') and st.session_state.get('last_search_industry'):
-    st.info(f"Showing results for {st.session_state['last_search_industry']} in {st.session_state['last_search_city']}")
+    st.info(t("showing_results_for", lang, industry=st.session_state['last_search_industry'], city=st.session_state['last_search_city']))
