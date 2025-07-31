@@ -665,7 +665,29 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
         if st.button(t("view_details", lang), key=f"details_{key_suffix}"):
             st.session_state[details_key] = not st.session_state[details_key]
         if st.session_state[details_key]:
-            st.json(analysis_result)
+            def render_dict(d, indent=0):
+                for k, v in d.items():
+                    pad = "&nbsp;" * (indent * 4)
+                    if isinstance(v, dict):
+                        st.markdown(f"{pad}**{k}:**", unsafe_allow_html=True)
+                        render_dict(v, indent + 1)
+                    elif isinstance(v, list):
+                        st.markdown(f"{pad}**{k}:**", unsafe_allow_html=True)
+                        for i, item in enumerate(v):
+                            if isinstance(item, dict):
+                                st.markdown(f"{pad}- [Item {i+1}]")
+                                render_dict(item, indent + 2)
+                            else:
+                                st.markdown(f"{pad}- {item}")
+                    else:
+                        st.markdown(f"{pad}**{k}:** {v}", unsafe_allow_html=True)
+
+            st.markdown("""
+                <div class="analysis-card">
+                    <h4 style='color:#764ba2; margin-bottom:0.5rem;'>Full Analysis Details</h4>
+            """, unsafe_allow_html=True)
+            render_dict(analysis_result)
+            st.markdown("</div>", unsafe_allow_html=True)
     with col3:
         if hubspot_available and st.button(t("push_to_hubspot", lang), key=f"hubspot_{key_suffix}"):
             OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")
