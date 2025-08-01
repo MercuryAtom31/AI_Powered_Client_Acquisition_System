@@ -620,7 +620,7 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
     st.markdown(f"""
         <div class="analysis-card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-            <h3 style="margin:0;color:#1e293b;font-size:1.1rem;"><span class="material-icons">public</span> {url}</h3>
+            <h3 style="margin:0;color:#27d1d8;font-size:1.1rem;"><span class="material-icons">public</span> {url}</h3>
             <div class="score-badge {grade_class}">{grade} ({seo_score}/100)</div>
           </div>
         </div>
@@ -739,7 +739,7 @@ st.markdown(f'<h2 id="url-analysis"><span class="material-icons">psychology</spa
 st.markdown(
     f'''
     <div class="metric-card">
-        <h3 style="margin: 0 0 1rem 0; color: #1e293b;"><span class="material-icons">download</span> {t("enter_urls", lang)}</h3>
+        <h3 style="margin: 0 0 1rem 0; color: #27d1d8;"><span class="material-icons">download</span> {t("enter_urls", lang)}</h3>
     </div>
     ''',
     unsafe_allow_html=True
@@ -938,7 +938,7 @@ if organized_data:
                 unsafe_allow_html=True
             )
         else:
-            st.markdown(f'<h4 style="margin-top: 2rem; color: #1e293b;">{group_name}</h4>', unsafe_allow_html=True)
+            st.markdown(f'<h4 style="margin-top: 2rem; color: #27d1d8;">{group_name}</h4>', unsafe_allow_html=True)
         
         for business_or_url, pages in businesses_or_urls.items():
             if group_name.startswith("Search:"):
@@ -1019,7 +1019,7 @@ st.markdown(f'<h2 id="business-search"><span class="material-icons">public</span
 st.markdown(
     f'''
     <div class="metric-card">
-        <h3 style="margin: 0 0 1rem 0; color: #1e293b;"><span class="material-icons">search</span> {t("search_for_businesses", lang)}</h3>
+        <h3 style="margin: 0 0 1rem 0; color: #27d1d8;"><span class="material-icons">search</span> {t("search_for_businesses", lang)}</h3>
         <p style="color: #64748b; margin: 0;">{t("search_for_businesses_desc", lang)}</p>
     </div>
     ''',
