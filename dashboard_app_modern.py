@@ -666,27 +666,56 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
             st.session_state[details_key] = not st.session_state[details_key]
         if st.session_state[details_key]:
             def render_dict(d, indent=0):
+                pad = "&nbsp;" * (indent * 4)
                 for k, v in d.items():
-                    pad = "&nbsp;" * (indent * 4)
-                    if isinstance(v, dict):
-                        st.markdown(f"{pad}**{k}:**", unsafe_allow_html=True)
+                    if indent == 1 and isinstance(v, dict):
+                        st.markdown(f"{pad}<b>{k.replace('_', ' ').title()}</b>", unsafe_allow_html=True)
+                    elif isinstance(v, dict):
+                        st.markdown(f"{pad}<b>{k.replace('_', ' ').title()}:</b>", unsafe_allow_html=True)
                         render_dict(v, indent + 1)
                     elif isinstance(v, list):
-                        st.markdown(f"{pad}**{k}:**", unsafe_allow_html=True)
-                        for i, item in enumerate(v):
-                            if isinstance(item, dict):
-                                st.markdown(f"{pad}- [Item {i+1}]")
+                        if v and all(isinstance(item, dict) for item in v):
+                            st.markdown(f"{pad}<b>{k.replace('_', ' ').title()}:</b>", unsafe_allow_html=True)
+                            for i, item in enumerate(v):
+                                st.markdown(f"{pad}- <b>Item {i+1}</b>", unsafe_allow_html=True)
                                 render_dict(item, indent + 2)
-                            else:
-                                st.markdown(f"{pad}- {item}")
+                        elif v:
+                            st.markdown(f"{pad}<b>{k.replace('_', ' ').title()}:</b>", unsafe_allow_html=True)
+                            for item in v:
+                                st.markdown(f"{pad}- {item}", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"{pad}<b>{k.replace('_', ' ').title()}:</b> []", unsafe_allow_html=True)
                     else:
-                        st.markdown(f"{pad}**{k}:** {v}", unsafe_allow_html=True)
+                        st.markdown(f"{pad}<b>{k.replace('_', ' ').title()}:</b> {v}", unsafe_allow_html=True)
 
             st.markdown("""
                 <div class="analysis-card">
                     <h4 style='color:#764ba2; margin-bottom:0.5rem;'>Full Analysis Details</h4>
             """, unsafe_allow_html=True)
-            render_dict(analysis_result)
+            # Always render SEO checks first, with values
+            seo_analysis = analysis_result.get('seo_analysis', {})
+            checks = seo_analysis.get('checks')
+            if checks and isinstance(checks, dict):
+                st.markdown(f"<b>SEO Checks:</b>", unsafe_allow_html=True)
+                for check_name, check_data in checks.items():
+                    st.markdown(f"<u>{check_name.replace('_',' ').title()}</u>", unsafe_allow_html=True)
+                    if isinstance(check_data, dict):
+                        for k, v in check_data.items():
+                            if k == 'recommendations' and isinstance(v, list):
+                                st.markdown(f"<b>Recommendations:</b>", unsafe_allow_html=True)
+                                for rec in v:
+                                    st.markdown(f"- {rec}", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"<b>{k.replace('_',' ').title()}:</b> {v}", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"{check_data}", unsafe_allow_html=True)
+                if len(checks) == 0:
+                    st.markdown(f"No SEO check data found.", unsafe_allow_html=True)
+            # Render the rest of the analysis result, excluding all of seo_analysis
+            analysis_copy = json.loads(json.dumps(analysis_result))  # deep copy
+            if 'seo_analysis' in analysis_copy:
+                analysis_copy.pop('seo_analysis')
+            render_dict(analysis_copy)
             st.markdown("</div>", unsafe_allow_html=True)
     with col3:
         if hubspot_available and st.button(t("push_to_hubspot", lang), key=f"hubspot_{key_suffix}"):
