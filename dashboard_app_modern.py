@@ -19,6 +19,54 @@ from datetime import datetime
 import logging
 import os
 
+def format_analysis_note(analysis_result):
+    lines = []
+
+    # 1) URL
+    lines.append(f"Website: {analysis_result.get('url', '')}")
+
+    # 2) SEO checks
+    seo = analysis_result.get('seo_analysis', {})
+    checks = seo.get('checks', {})
+    if checks:
+        lines.append("\n=== SEO Checks ===")
+        for check_name, check_data in checks.items():
+            lines.append(f"• {check_name.replace('_', ' ').title()}")
+            if isinstance(check_data, dict):
+                for k, v in check_data.items():
+                    if k == 'recommendations' and isinstance(v, list) and v:
+                        lines.append("  Recommendations:")
+                        for rec in v:
+                            lines.append(f"    - {rec}")
+                    elif isinstance(v, list):
+                        lines.append(f"  {k.replace('_',' ').title()}: {', '.join(map(str, v))}")
+                    else:
+                        lines.append(f"  {k.replace('_',' ').title()}: {v}")
+
+    # 3) Contact info
+    contact = analysis_result.get('contact_info', {})
+    emails  = contact.get('emails', [])
+    phones  = contact.get('phones', [])
+    if emails or phones:
+        lines.append("\n=== Contact Info ===")
+        if emails:
+            lines.append(f"Emails: {', '.join(emails)}")
+        if phones:
+            lines.append(f"Phones: {', '.join(phones)}")
+
+    # 4) AI analysis
+    ai = analysis_result.get('ai_analysis')
+    if ai:
+        lines.append("\n=== AI Analysis ===")
+        if isinstance(ai, dict) and 'response' in ai:
+            lines.append(ai['response'])
+        else:
+            lines.append(str(ai))
+
+    return "\n".join(lines)
+
+
+
 # --- Localization Setup ---
 def load_translations():
     with open('translations.json', 'r', encoding='utf-8') as f:
@@ -754,8 +802,51 @@ def _display_analysis_result(analysis_result: Dict, hubspot_available: bool, uni
                     )
                     contact_id = new_ct.id
 
-            # Attach the analysis note
-            note_id = hubspot_client.create_analysis_note(contact_id, analysis_result)
+            # Format the analysis note as regular readable text
+            # def format_analysis_note(analysis_result):
+            #     lines = []
+            #     lines.append(f"Website: {analysis_result.get('url', '')}")
+
+            #     seo_analysis = analysis_result.get('seo_analysis', {})
+            #     checks = seo_analysis.get('checks', {})
+            #     if checks:
+            #         lines.append("\n=== SEO Checks ===")
+            #         for check_name, check_data in checks.items():
+            #             lines.append(f"\n• {check_name.replace('_', ' ').title()}")
+            #             if isinstance(check_data, dict):
+            #                 for k, v in check_data.items():
+            #                     if k == 'recommendations' and isinstance(v, list) and v:
+            #                         lines.append("  Recommendations:")
+            #                         for rec in v:
+            #                             lines.append(f"    - {rec}")
+            #                     elif isinstance(v, list):
+            #                         lines.append(f"  {k.replace('_', ' ').title()}: {', '.join(map(str, v))}")
+            #                     else:
+            #                         lines.append(f"  {k.replace('_', ' ').title()}: {v}")
+            #             else:
+            #                 lines.append(f"  {str(check_data)}")
+
+            #     contact_info = analysis_result.get('contact_info', {})
+            #     emails = contact_info.get('emails', [])
+            #     phones = contact_info.get('phones', [])
+            #     if emails or phones:
+            #         lines.append("\n=== Contact Info ===")
+            #         if emails:
+            #             lines.append(f"Emails: {', '.join(emails)}")
+            #         if phones:
+            #             lines.append(f"Phones: {', '.join(phones)}")
+
+            #     ai_analysis = analysis_result.get('ai_analysis', {})
+            #     if isinstance(ai_analysis, dict) and 'response' in ai_analysis:
+            #         lines.append("\n=== AI Analysis ===")
+            #         lines.append(ai_analysis['response'])
+
+            #     return '\n'.join(lines)
+
+
+
+            note_text = format_analysis_note(analysis_result)
+            note_id = hubspot_client.create_analysis_note(contact_id, note_text)
             if note_id:
                 st.success(t("analysis_pushed_as_note", lang))
             else:
